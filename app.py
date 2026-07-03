@@ -1,5 +1,5 @@
 """
-Neighborhood Intelligence Dashboard (PORTFOLIO VERSION)
+Neighborhood Intelligence Dashboard (FINAL BOSS)
 Run: streamlit run app.py
 """
 
@@ -9,7 +9,7 @@ import streamlit as st
 import plotly.express as px
 
 # ---------------------------------------------------
-# PAGE CONFIG
+# CONFIG
 # ---------------------------------------------------
 st.set_page_config(
     page_title="Neighborhood Intelligence",
@@ -18,27 +18,21 @@ st.set_page_config(
 )
 
 # ---------------------------------------------------
-# STYLE (clean + modern)
+# STYLE
 # ---------------------------------------------------
 st.markdown("""
 <style>
-.block-container {
-    padding-top: 2rem;
-}
-.metric-card {
+.block-container {padding-top: 2rem;}
+.card {
     background-color: #111827;
     padding: 20px;
     border-radius: 12px;
-    text-align: center;
 }
-.big-font {
+.title {
     font-size: 26px;
     font-weight: 600;
 }
-.highlight {
-    color: #22c55e;
-    font-weight: bold;
-}
+.highlight {color:#22c55e;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -59,25 +53,17 @@ data = [
     ["Richmond, VA", 355000, 6.5, 52, 2.2],
 ]
 
-df = pd.DataFrame(data, columns=[
-    "City",
-    "Price",
-    "School",
-    "Walk",
-    "Growth"
-])
+df = pd.DataFrame(data, columns=["City","Price","School","Walk","Growth"])
 
 # ---------------------------------------------------
 # SIDEBAR
 # ---------------------------------------------------
-st.sidebar.header("🎯 Your Priorities")
+st.sidebar.header("🧠 Buyer Profile")
 
-w_price = st.sidebar.slider("Affordability", 0, 100, 40)
-w_school = st.sidebar.slider("Schools", 0, 100, 25)
-w_walk = st.sidebar.slider("Walkability", 0, 100, 15)
-w_growth = st.sidebar.slider("Growth", 0, 100, 20)
-
-total = max(w_price + w_school + w_walk + w_growth, 1)
+persona = st.sidebar.selectbox(
+    "Who are you?",
+    ["First-Time Buyer", "Family", "Investor", "Remote Worker"]
+)
 
 budget = st.sidebar.slider(
     "💰 Max Budget",
@@ -87,22 +73,34 @@ budget = st.sidebar.slider(
 )
 
 # ---------------------------------------------------
+# PERSONA WEIGHTS
+# ---------------------------------------------------
+persona_weights = {
+    "First-Time Buyer": dict(price=0.5, school=0.2, walk=0.1, growth=0.2),
+    "Family": dict(price=0.3, school=0.4, walk=0.1, growth=0.2),
+    "Investor": dict(price=0.2, school=0.1, walk=0.1, growth=0.6),
+    "Remote Worker": dict(price=0.3, school=0.1, walk=0.4, growth=0.2),
+}
+
+w = persona_weights[persona]
+
+# ---------------------------------------------------
 # SCORING
 # ---------------------------------------------------
-def normalize(series, invert=False):
-    norm = (series - series.min()) / (series.max() - series.min()) * 100
-    return 100 - norm if invert else norm
+def norm(series, invert=False):
+    s = (series - series.min()) / (series.max() - series.min()) * 100
+    return 100 - s if invert else s
 
-df["Afford"] = normalize(df["Price"], invert=True)
-df["SchoolN"] = normalize(df["School"])
-df["WalkN"] = normalize(df["Walk"])
-df["GrowthN"] = normalize(df["Growth"])
+df["Afford"] = norm(df["Price"], invert=True)
+df["SchoolN"] = norm(df["School"])
+df["WalkN"] = norm(df["Walk"])
+df["GrowthN"] = norm(df["Growth"])
 
 df["Score"] = (
-    df["Afford"] * (w_price / total) +
-    df["SchoolN"] * (w_school / total) +
-    df["WalkN"] * (w_walk / total) +
-    df["GrowthN"] * (w_growth / total)
+    df["Afford"] * w["price"] +
+    df["SchoolN"] * w["school"] +
+    df["WalkN"] * w["walk"] +
+    df["GrowthN"] * w["growth"]
 ).round(1)
 
 # ---------------------------------------------------
@@ -111,87 +109,82 @@ df["Score"] = (
 filtered = df[df["Price"] <= budget].sort_values("Score", ascending=False)
 
 if filtered.empty:
-    st.warning("No cities match your budget.")
+    st.warning("No matches. Increase budget.")
     st.stop()
 
-top = filtered.iloc[0]
+top3 = filtered.head(3)
+top = top3.iloc[0]
 
 # ---------------------------------------------------
 # HEADER
 # ---------------------------------------------------
 st.title("🏡 Neighborhood Intelligence")
-st.caption("A data-driven tool to find the best U.S. city for first-time homebuyers")
+st.caption("Smart city selection for modern homebuyers")
 
 # ---------------------------------------------------
-# TOP CARD
+# TOP RESULT CARD
 # ---------------------------------------------------
 st.markdown(f"""
-<div class="metric-card">
-    <div class="big-font">🏆 Best City: {top['City']}</div>
-    <div class="highlight">Match Score: {top['Score']}%</div>
+<div class="card">
+    <div class="title">🏆 Best Match: {top['City']}</div>
+    <div class="highlight">Score: {top['Score']}%</div>
 </div>
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------
-# AI-STYLE INSIGHT
+# AI EXPLANATION
 # ---------------------------------------------------
-def generate_insight(row):
+def explain(city):
     reasons = []
 
-    if row["Afford"] > 70:
-        reasons.append("excellent affordability for first-time buyers")
-    if row["Growth"] > 2.3:
-        reasons.append("strong population and economic growth")
-    if row["School"] > 7:
-        reasons.append("high-quality schools")
-    if row["Walk"] > 60:
-        reasons.append("great walkability and urban lifestyle")
+    if city["Afford"] > 70:
+        reasons.append("affordable entry point")
+    if city["Growth"] > 2.3:
+        reasons.append("strong growth potential")
+    if city["School"] > 7:
+        reasons.append("top-tier schools")
+    if city["Walk"] > 60:
+        reasons.append("high walkability")
 
     if not reasons:
-        return "balanced performance across key homebuyer factors"
+        return "balanced overall performance"
 
     return ", ".join(reasons)
 
-st.subheader("🧠 Why This City?")
-st.info(f"{top['City']} stands out due to its {generate_insight(top)}.")
+st.subheader("🧠 Why this recommendation?")
+st.info(f"{top['City']} is a strong match for a {persona.lower()} because of its {explain(top)}.")
 
 # ---------------------------------------------------
-# KPI ROW
+# TOP 3
 # ---------------------------------------------------
-col1, col2, col3, col4 = st.columns(4)
+st.subheader("🥇 Top 3 Cities")
 
-col1.metric("Home Price", f"${top['Price']:,}")
-col2.metric("School Rating", top["School"])
-col3.metric("Walk Score", top["Walk"])
-col4.metric("Growth %", f"{top['Growth']}%")
+cols = st.columns(3)
+for i, row in enumerate(top3.itertuples()):
+    cols[i].metric(row.City, f"{row.Score}%")
 
 # ---------------------------------------------------
-# CHARTS
+# CHART
 # ---------------------------------------------------
-st.subheader("📊 City Rankings")
+st.subheader("📊 Rankings")
 
 fig = px.bar(
     filtered,
     x="Score",
     y="City",
     orientation="h",
-    text="Score",
     color="Score",
+    text="Score"
 )
 
-fig.update_layout(
-    yaxis={'categoryorder':'total ascending'},
-    plot_bgcolor="#0b0e14",
-    paper_bgcolor="#0b0e14",
-    font_color="white"
-)
+fig.update_layout(yaxis={'categoryorder':'total ascending'})
 
 st.plotly_chart(fig, use_container_width=True)
 
 # ---------------------------------------------------
 # SCATTER
 # ---------------------------------------------------
-st.subheader("💡 Price vs Value")
+st.subheader("💡 Price vs Score")
 
 fig2 = px.scatter(
     filtered,
@@ -202,20 +195,11 @@ fig2 = px.scatter(
     hover_name="City"
 )
 
-fig2.update_layout(
-    plot_bgcolor="#0b0e14",
-    paper_bgcolor="#0b0e14",
-    font_color="white"
-)
-
 st.plotly_chart(fig2, use_container_width=True)
 
 # ---------------------------------------------------
 # TABLE
 # ---------------------------------------------------
-st.subheader("📋 Full Comparison")
+st.subheader("📋 Data")
 
-st.dataframe(
-    filtered[["City", "Price", "School", "Walk", "Growth", "Score"]],
-    use_container_width=True
-)
+st.dataframe(filtered, use_container_width=True)
