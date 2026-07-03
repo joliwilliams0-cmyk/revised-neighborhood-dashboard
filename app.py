@@ -93,7 +93,6 @@ ACCENT3 = "#7C4DFF"
 # ----------------------------------------------------------------------
 @st.cache_data
 def load_data():
-    # Use an absolute path relative to this file
     base_path = os.path.dirname(os.path.abspath(__file__))
     path = os.path.join(base_path, "data", "cities_data.csv")
     
@@ -103,24 +102,23 @@ def load_data():
         
     try:
         df = pd.read_csv(path)
+        
+        # Clean currency columns before converting
+        for col in ["median_home_price"]:
+            if col in df.columns and df[col].dtype == object:
+                df[col] = df[col].replace(r'[\$,]', '', regex=True)
+                
         numeric_cols = [
             "lat", "lon", "median_home_price", "price_trend_pct",
             "walk_score", "school_score", "population_growth_pct",
         ]
         for col in numeric_cols:
-            df[col] = pd.to_numeric(df[col], errors="coerce")
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors="coerce")
         return df
     except Exception as e:
         st.error(f"Error loading or processing data: {e}")
         return None
-
-# Load the data safely
-df_raw = load_data()
-
-# Stop the app if data failed to load
-if df_raw is None or df_raw.empty:
-    st.error("Data could not be loaded. Please check the 'data/cities_data.csv' file.")
-    st.stop()
 # ----------------------------------------------------------------------
 # SIDEBAR CONTROLS
 # ----------------------------------------------------------------------
