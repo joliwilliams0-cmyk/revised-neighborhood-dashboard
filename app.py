@@ -1,4 +1,3 @@
-```python
 """
 Metro Intelligence Dashboard (STABLE BUILD)
 Run: streamlit run app.py
