@@ -91,9 +91,27 @@ ACCENT3 = "#7C4DFF"
 # ----------------------------------------------------------------------
 # DATA LOADING & PREPARATION
 # ----------------------------------------------------------------------
-File "/mount/src/revised-neighborhood-dashboard/app.py", line 216, in <module>
-    scored = score_dataframe(df_raw)
-                             ^^^^^^
+@st.cache_data
+def load_data():
+    base_path = os.path.dirname(os.path.abspath(__file__))
+    path = os.path.join(base_path, "data", "cities_data.csv")
+    if not os.path.exists(path):
+        return None
+    df = pd.read_csv(path)
+    # Clean currency
+    for col in ["median_home_price"]:
+        if col in df.columns and df[col].dtype == object:
+            df[col] = df[col].replace(r'[\$,]', '', regex=True)
+    numeric_cols = ["lat", "lon", "median_home_price", "price_trend_pct", "walk_score", "school_score", "population_growth_pct"]
+    for col in numeric_cols:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+    return df
+
+df_raw = load_data()
+if df_raw is None:
+    st.error("Could not find or load 'data/cities_data.csv'.")
+    st.stop()
 # ----------------------------------------------------------------------
 # SIDEBAR CONTROLS
 # ----------------------------------------------------------------------
