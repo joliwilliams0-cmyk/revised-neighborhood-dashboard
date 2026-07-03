@@ -26,7 +26,7 @@ CITIES = [
 ]
 
 # -----------------------------
-# SYNTHETIC MACRO DATA (MODELED INDICATORS)
+# SYNTHETIC MACRO DATA
 # -----------------------------
 def create_city_data():
     data = {
@@ -56,7 +56,6 @@ def create_city_data():
 
     return pd.DataFrame.from_dict(data, orient="index", columns=cols)
 
-
 df = create_city_data()
 
 # -----------------------------
@@ -66,14 +65,15 @@ def minmax(series):
     return (series - series.min()) / (series.max() - series.min())
 
 norm_df = df.copy()
+
 for c in df.columns:
     norm_df[c] = minmax(df[c])
 
-# invert where lower is better
+# lower is better
 norm_df["median_home_price"] = 1 - norm_df["median_home_price"]
 
 # -----------------------------
-# QUIZ STATE
+# SESSION STATE
 # -----------------------------
 if "step" not in st.session_state:
     st.session_state.step = 0
@@ -99,7 +99,7 @@ if st.session_state.mode is None:
     st.stop()
 
 # -----------------------------
-# QUIZ (BUYER)
+# BUYER QUIZ
 # -----------------------------
 if st.session_state.mode == "buyer":
     st.sidebar.header("Buyer Preferences")
@@ -113,7 +113,7 @@ if st.session_state.mode == "buyer":
     urban = st.sidebar.slider("Urban lifestyle preference", 0, 10, 5)
 
 # -----------------------------
-# QUIZ (INVESTOR)
+# INVESTOR QUIZ
 # -----------------------------
 if st.session_state.mode == "investor":
     st.sidebar.header("Investor Preferences")
@@ -125,41 +125,65 @@ if st.session_state.mode == "investor":
     STR = st.sidebar.selectbox("Rental Strategy", ["long-term", "airbnb", "mixed"])
 
 # -----------------------------
-# SCORING ENGINE
+# FIXED SCORING ENGINE (NOW USES SLIDERS)
 # -----------------------------
-def compute_scores(mode):
+def compute_scores(mode, prefs):
+
     scores = {}
+
+    if mode == "buyer":
+
+        base_weights = {
+            "quality_of_life": 0.25,
+            "safety": 0.20,
+            "walkability": 0.20,
+            "economic_diversity": 0.15,
+            "job_growth": 0.10,
+            "population_growth": 0.10
+        }
+
+        user_weights = {
+            "safety": 1 + prefs["safety"] * 0.10,
+            "walkability": 1 + prefs["walkability"] * 0.10,
+            "economic_diversity": 1 + prefs["diversity"] * 0.07,
+            "quality_of_life": 1 + prefs["urban"] * 0.05,
+            "job_growth": 1.0,
+            "population_growth": 1.0
+        }
+
+    else:
+
+        base_weights = {
+            "rental_yield": 0.30,
+            "population_growth": 0.20,
+            "job_growth": 0.15,
+            "economic_diversity": 0.15,
+            "median_home_price": 0.10,
+            "safety": 0.10
+        }
+
+        user_weights = {
+            "rental_yield": 1 + prefs["risk"] * 0.08,
+            "population_growth": 1 + prefs["risk"] * 0.05,
+            "median_home_price": 1 + prefs["cashflow"] * 0.06,
+            "job_growth": 1.0,
+            "economic_diversity": 1.0,
+            "safety": 1.0
+        }
 
     for city in CITIES:
         row = norm_df.loc[city]
 
-        if mode == "buyer":
-            score = (
-                row["quality_of_life"] * 0.25 +
-                row["safety"] * 0.20 +
-                row["walkability"] * 0.20 +
-                row["economic_diversity"] * 0.15 +
-                row["job_growth"] * 0.10 +
-                row["population_growth"] * 0.10
-            )
-
-        else:
-            score = (
-                row["rental_yield"] * 0.30 +
-                row["population_growth"] * 0.20 +
-                row["job_growth"] * 0.15 +
-                row["economic_diversity"] * 0.15 +
-                row["median_home_price"] * 0.10 +
-                row["safety"] * 0.10
-            )
+        score = 0
+        for f in base_weights:
+            score += row[f] * base_weights[f] * user_weights.get(f, 1.0)
 
         scores[city] = score
 
     return pd.Series(scores).sort_values(ascending=False)
 
-
 # -----------------------------
-# RUN MODEL
+# RUN BUTTON
 # -----------------------------
 if st.sidebar.button("Run Analysis"):
     st.session_state.step = 1
@@ -167,14 +191,36 @@ if st.sidebar.button("Run Analysis"):
 if st.session_state.step == 0:
     st.stop()
 
-scores = compute_scores(st.session_state.mode)
+# -----------------------------
+# BUILD PREFS (KEY FIX)
+# -----------------------------
+if st.session_state.mode == "buyer":
+    prefs = {
+        "budget": budget,
+        "climate": climate,
+        "walkability": walkability,
+        "safety": safety,
+        "diversity": diversity,
+        "schools": schools,
+        "urban": urban
+    }
+else:
+    prefs = {
+        "horizon": horizon,
+        "risk": risk,
+        "cashflow": cashflow,
+        "vacancy": vacancy,
+        "STR": STR
+    }
+
+scores = compute_scores(st.session_state.mode, prefs)
 
 top3 = scores.head(3)
 full = scores.reset_index()
 full.columns = ["City", "Score"]
 
 # -----------------------------
-# RESULTS HEADER
+# RESULTS
 # -----------------------------
 st.subheader("📊 Top City Recommendations")
 
@@ -191,60 +237,26 @@ tab1, tab2, tab3, tab4 = st.tabs([
     "🧠 Why These Results"
 ])
 
-# -----------------------------
-# TAB 1
-# -----------------------------
 with tab1:
-    st.write("Full Ranking")
     st.dataframe(full)
+    st.plotly_chart(px.bar(full, x="City", y="Score"), use_container_width=True)
 
-    fig = px.bar(full, x="City", y="Score", title="City Scores Comparison")
-    st.plotly_chart(fig, use_container_width=True)
-
-# -----------------------------
-# TAB 2
-# -----------------------------
 with tab2:
-    st.write("Normalized Feature Matrix (Modeled Indicators)")
     st.dataframe(norm_df)
+    st.plotly_chart(px.imshow(norm_df.T, aspect="auto"), use_container_width=True)
 
-    fig2 = px.imshow(norm_df.T, aspect="auto", title="Feature Heatmap Across Cities")
-    st.plotly_chart(fig2, use_container_width=True)
-
-# -----------------------------
-# TAB 3
-# -----------------------------
 with tab3:
-    fig3 = px.scatter(
-        full,
-        x="City",
-        y="Score",
-        size="Score",
-        title="Risk-Return Proxy Distribution"
+    st.plotly_chart(
+        px.scatter(full, x="City", y="Score", size="Score"),
+        use_container_width=True
     )
-    st.plotly_chart(fig3, use_container_width=True)
 
-# -----------------------------
-# TAB 4 EXPLANATIONS
-# -----------------------------
 with tab4:
-    st.subheader("Decision Transparency Engine")
+    st.subheader("Decision Transparency")
 
     for i, city in enumerate(top3.index):
         st.markdown(f"### {i+1}. {city}")
-
-        st.write("""
-        **Why it ranks high (mode-driven scoring):**
-        - Weighted alignment with user preference profile
-        - Strong relative performance in normalized macro indicators
-        - Balanced tradeoff between affordability and growth
-        """)
-
-        st.write("**Key Drivers:**")
         st.write(norm_df.loc[city].sort_values(ascending=False).head(3))
-
-        st.write("**Tradeoffs:**")
-        st.write("Some categories underperform relative to competing cities in top 5 cluster.")
 
 # -----------------------------
 # METHODOLOGY
@@ -253,11 +265,10 @@ st.markdown("---")
 st.subheader("📐 Methodology")
 
 st.write("""
-- All metrics are synthetic but grounded in real-world economic ranges
-- Min-max normalization applied across all cities
-- Separate scoring models for Buyer vs Investor paths
-- Deterministic weighting system (no randomness in ranking)
-- Final score = Σ(normalized feature × importance weight)
+- Min-max normalization across cities
+- Dynamic preference-weighted scoring system
+- Separate Buyer vs Investor utility functions
+- Fully deterministic ranking engine
 """)
 
-st.success("Analysis complete. FABA decision engine executed successfully.")
+st.success("Analysis complete — FABA engine operational.")
