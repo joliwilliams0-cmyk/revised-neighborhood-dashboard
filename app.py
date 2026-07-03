@@ -139,9 +139,11 @@ if "profile" not in st.session_state:
 
 
 def apply_preset():
-    preset = PRESETS[st.session_state.profile]
-    for k, v in preset.items():
-        st.session_state[f"w_{k}"] = v
+    # Only run if the 'profile' key actually exists in session_state
+    if "profile" in st.session_state:
+        preset = PRESETS[st.session_state.profile]
+        for k, v in preset.items():
+            st.session_state[f"w_{k}"] = v
 
 
 st.sidebar.selectbox(
