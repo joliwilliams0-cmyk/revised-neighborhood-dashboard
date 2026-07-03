@@ -7,13 +7,13 @@ import plotly.express as px
 # PAGE CONFIG
 # =========================================================
 st.set_page_config(
-    page_title="Metro Decision Dashboard",
+    page_title="Neighborhood Intelligence Engine",
     page_icon="🏙️",
     layout="wide"
 )
 
-st.title("🏙️ Metro Decision Intelligence Dashboard")
-st.caption("Power BI–style model for comparing U.S. housing markets")
+st.title("🏙️ Neighborhood Intelligence Engine")
+st.caption("Advanced utility-based model for comparing U.S. housing markets")
 
 # =========================================================
 # DATA
@@ -30,20 +30,17 @@ df = pd.DataFrame([
     ["Oakland, CA", 37.8044, -122.2712, 780000, 6.2, 72, 1.0],
     ["Tampa, FL", 27.9506, -82.4572, 380000, 6.0, 51, 2.4],
     ["Richmond, VA", 37.5407, -77.4360, 355000, 6.5, 52, 2.2],
-], columns=[
-    "City", "lat", "lon", "Price",
-    "School", "Walk", "Growth"
-])
+], columns=["City", "lat", "lon", "Price", "School", "Walk", "Growth"])
 
 # =========================================================
-# SIDEBAR FILTERS (POWER BI STYLE SLICERS)
+# SIDEBAR (PERSONALIZATION)
 # =========================================================
-st.sidebar.header("🎛️ Decision Controls")
+st.sidebar.header("🎯 Preferences")
 
-price_w = st.sidebar.slider("🏠 Home Price Importance", 0, 100, 40)
-school_w = st.sidebar.slider("🏫 School Importance", 0, 100, 25)
-walk_w = st.sidebar.slider("🚶 Walkability Importance", 0, 100, 15)
-growth_w = st.sidebar.slider("📈 Growth Trend Importance", 0, 100, 20)
+persona = st.sidebar.selectbox(
+    "Buyer Type",
+    ["First-Time Buyer", "Family", "Investor", "Remote Worker"]
+)
 
 budget = st.sidebar.slider(
     "💰 Max Budget",
@@ -52,64 +49,117 @@ budget = st.sidebar.slider(
     500000
 )
 
+weights = {
+    "First-Time Buyer": [0.5, 0.2, 0.1, 0.2],
+    "Family": [0.3, 0.4, 0.1, 0.2],
+    "Investor": [0.2, 0.1, 0.1, 0.6],
+    "Remote Worker": [0.3, 0.1, 0.4, 0.2],
+}
+
+price_w, school_w, walk_w, growth_w = weights[persona]
 total = price_w + school_w + walk_w + growth_w
-if total == 0:
-    total = 1
 
 # =========================================================
-# NORMALIZATION (POWER BI STYLE MEASURES)
+# SMART MATH ENGINE (UTILITY MODEL)
 # =========================================================
-def norm(series, invert=False):
-    x = (series - series.min()) / (series.max() - series.min()) * 100
-    return 100 - x if invert else x
+def norm01(s):
+    return (s - s.min()) / (s.max() - s.min() + 1e-9)
 
-df["PriceScore"] = norm(df["Price"], invert=True)
-df["SchoolScore"] = norm(df["School"])
-df["WalkScore"] = norm(df["Walk"])
-df["GrowthScore"] = norm(df["Growth"])
+def diminishing(x, p):
+    return np.power(x, p)
 
-# =========================================================
-# COMPOSITE SCORE (LIKE POWER BI DAX MEASURE)
-# =========================================================
-df["Composite"] = (
-    df["PriceScore"] * (price_w / total) +
-    df["SchoolScore"] * (school_w / total) +
-    df["WalkScore"] * (walk_w / total) +
-    df["GrowthScore"] * (growth_w / total)
-).round(1)
+def budget_penalty(price, budget):
+    ratio = price / budget
+    return np.exp(-3 * np.clip(ratio - 0.85, 0, None))
+
+df["Price_n"] = norm01(df["Price"])
+df["School_n"] = norm01(df["School"])
+df["Walk_n"] = norm01(df["Walk"])
+df["Growth_n"] = norm01(df["Growth"])
+
+df["Price_u"] = 1 - diminishing(df["Price_n"], 0.9)
+df["School_u"] = diminishing(df["School_n"], 0.75)
+df["Walk_u"] = diminishing(df["Walk_n"], 0.65)
+df["Growth_u"] = diminishing(df["Growth_n"], 0.8)
+
+df["Penalty"] = budget_penalty(df["Price"], budget)
+
+df["Utility"] = (
+    df["Price_u"] * (price_w / total) +
+    df["School_u"] * (school_w / total) +
+    df["Walk_u"] * (walk_w / total) +
+    df["Growth_u"] * (growth_w / total)
+)
+
+df["Utility"] = df["Utility"] * df["Penalty"]
+df["Score"] = (df["Utility"] * 100).round(1)
 
 # =========================================================
 # FILTER
 # =========================================================
-filtered = df[df["Price"] <= budget].sort_values("Composite", ascending=False)
+filtered = df[df["Price"] <= budget].sort_values("Score", ascending=False)
 
 if filtered.empty:
-    st.warning("No cities match filters — increase budget.")
+    st.warning("No cities match your filters.")
     st.stop()
 
 top = filtered.iloc[0]
+top3 = filtered.head(3)
 
 # =========================================================
-# TOP KPI STRIP (EXECUTIVE DASHBOARD STYLE)
+# HEADER KPI STRIP
 # =========================================================
 c1, c2, c3, c4 = st.columns(4)
 
 c1.metric("🏆 Best City", top["City"])
-c2.metric("📊 Score", f"{top['Composite']}%")
+c2.metric("📊 Score", f"{top['Score']}%")
 c3.metric("🏠 Price", f"${int(top['Price']):,}")
 c4.metric("📈 Growth", f"{top['Growth']}%")
 
 # =========================================================
-# MAP VISUAL (POWER BI STYLE VISUAL 1)
+# INSIGHT ENGINE
 # =========================================================
-st.subheader("🗺️ Market Map View")
+def explain(row):
+    reasons = []
+
+    if row["Price"] < budget * 0.75:
+        reasons.append("below budget → financial flexibility")
+    if row["School_u"] > 0.7:
+        reasons.append("strong school performance")
+    if row["Walk_u"] > 0.7:
+        reasons.append("high walkability")
+    if row["Growth_u"] > 0.7:
+        reasons.append("strong future growth")
+    if row["Penalty"] < 0.9:
+        reasons.append("slightly stretched budget reduces utility")
+
+    return " • ".join(reasons) if reasons else "balanced tradeoff profile"
+
+st.subheader("🧠 Recommendation Engine")
+st.success(f"{top['City']} is the best match for a {persona.lower()}.")
+st.info(explain(top))
+
+# =========================================================
+# TOP 3
+# =========================================================
+st.subheader("🥇 Top 3 Cities")
+
+st.dataframe(
+    top3[["City", "Score", "Price", "School", "Walk", "Growth"]],
+    use_container_width=True
+)
+
+# =========================================================
+# MAP
+# =========================================================
+st.subheader("🗺️ Geographic View")
 
 fig_map = px.scatter_mapbox(
     filtered,
     lat="lat",
     lon="lon",
-    size="Composite",
-    color="Composite",
+    size="Score",
+    color="Score",
     hover_name="City",
     zoom=3,
     mapbox_style="carto-darkmatter"
@@ -118,17 +168,17 @@ fig_map = px.scatter_mapbox(
 st.plotly_chart(fig_map, use_container_width=True)
 
 # =========================================================
-# RANKING BAR (VISUAL 2)
+# RANKING CHART
 # =========================================================
-st.subheader("🏆 City Ranking Scoreboard")
+st.subheader("🏆 Ranking Scoreboard")
 
 fig_bar = px.bar(
     filtered,
-    x="Composite",
+    x="Score",
     y="City",
     orientation="h",
-    color="Composite",
-    text="Composite"
+    color="Score",
+    text="Score"
 )
 
 fig_bar.update_layout(yaxis={'categoryorder':'total ascending'})
@@ -136,14 +186,14 @@ fig_bar.update_layout(yaxis={'categoryorder':'total ascending'})
 st.plotly_chart(fig_bar, use_container_width=True)
 
 # =========================================================
-# SCATTER INSIGHT (VISUAL 3)
+# TRADEOFF ANALYSIS
 # =========================================================
-st.subheader("💡 Price vs Opportunity")
+st.subheader("💡 Price vs Opportunity Tradeoff")
 
 fig_scatter = px.scatter(
     filtered,
     x="Price",
-    y="Composite",
+    y="Score",
     size="Walk",
     color="School",
     hover_name="City"
@@ -152,33 +202,8 @@ fig_scatter = px.scatter(
 st.plotly_chart(fig_scatter, use_container_width=True)
 
 # =========================================================
-# INSIGHT ENGINE (POWER BI "AI VISUAL")
-# =========================================================
-def explain(row):
-    reasons = []
-
-    if row["PriceScore"] > 70:
-        reasons.append("high affordability")
-    if row["SchoolScore"] > 70:
-        reasons.append("strong school systems")
-    if row["WalkScore"] > 70:
-        reasons.append("walkable lifestyle")
-    if row["GrowthScore"] > 70:
-        reasons.append("strong growth trend")
-
-    return ", ".join(reasons) if reasons else "balanced profile across all factors"
-
-st.subheader("🧠 Insight Engine")
-st.info(f"{top['City']} is the best match due to {explain(top)}.")
-
-# =========================================================
-# DATA TABLE (DETAIL VIEW)
+# FULL DATA
 # =========================================================
 st.subheader("📋 Full Dataset")
 
-st.dataframe(
-    filtered[[
-        "City", "Price", "School", "Walk", "Growth", "Composite"
-    ]],
-    use_container_width=True
-)
+st.dataframe(filtered, use_container_width=True)
