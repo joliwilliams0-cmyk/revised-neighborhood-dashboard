@@ -117,37 +117,14 @@ NUMERIC_COLS = [
 
 
 @st.cache_data
-st.write("Data Preview (First 5 rows):")
-st.write(df_raw.head())
+@st.cache_data
 def load_data():
-    # Resolve the path relative to this file, not the current working
-    # directory -- Streamlit Cloud's working directory isn't always the
-    # repo root, so a bare "data/cities_data.csv" can fail even when the
-    # file is right there in the repo.
-    app_dir = os.path.dirname(os.path.abspath(__file__))
-    path = os.path.join(app_dir, "data", "cities_data.csv")
-
-    if not os.path.exists(path):
-        st.warning(
-            f"⚠️ Couldn't find `data/cities_data.csv` at `{path}`. "
-            "This usually means the `data/` folder wasn't pushed to GitHub "
-            "(common when files are uploaded one-by-one through the GitHub "
-            "web UI instead of the whole folder). Using the built-in "
-            "fallback dataset for now -- re-push the `data/` folder to fix "
-            "this permanently.",
-            icon="⚠️",
-        )
-        df = pd.DataFrame(FALLBACK_DATA)
-    else:
-        df = pd.read_csv(path)
-
-    for col in NUMERIC_COLS:
-        df[col] = pd.to_numeric(df[col], errors="coerce")
+    base_path = os.path.dirname(os.path.abspath(__file__))
+    path = os.path.join(base_path, "data", "cities_data.csv")
+    df = pd.read_csv(path)
+    # Ensure prices are numbers
+    df["median_home_price"] = pd.to_numeric(df["median_home_price"], errors="coerce")
     return df
-
-
-df_raw = load_data()
-
 # ----------------------------------------------------------------------
 # SIDEBAR CONTROLS
 # ----------------------------------------------------------------------
@@ -187,14 +164,18 @@ w_school = st.sidebar.slider("🏫 School Quality", 0, 100, key="w_Schools")
 
 weight_sum = max(w_afford + w_growth + w_walk + w_school, 1)  # avoid /0
 
-st.sidebar.markdown("---")
+# Calculate min and max from the actual data so sliders are never "extreme"
+data_min = int(df_raw["median_home_price"].min())
+data_max = int(df_raw["median_home_price"].max())
+
 budget = st.sidebar.slider(
     "Max Budget ($)",
-    min_value=200_000,
-    max_value=1_000_000,
-    value=1_000_000,
+    min_value=data_min,
+    max_value=data_max,
+    value=data_max,  # Starts at max so it includes everything by default
     step=10_000,
     format="$%d",
+
 )
 
 match_threshold = st.sidebar.selectbox(
@@ -226,10 +207,9 @@ def minmax(series: pd.Series, invert: bool = False) -> pd.Series:
 
 def score_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     d = df.copy()
-    d["afford_score"] = minmax(d["median_home_price"], invert=True)
-    d["growth_score"] = minmax(d["population_growth_pct"] * 0.6 + d["price_trend_pct"].clip(lower=0) * 0.4)
-    d["walk_norm"] = minmax(d["walk_score"])
-    d["school_norm"] = minmax(d["school_score"])
+    # Use the FULL dataset for scoring so the 0-100 scale stays stable
+    d["afford_score"] = minmax(df_raw["median_home_price"], invert=True) 
+    d["growth_score"] = minmax(df_raw["population_growth_pct"] * 0.6 + df_raw["price_trend_pct"].clip(lower=0) * 0.4)
 
     d["composite"] = (
         d["afford_score"] * (w_afford / weight_sum)
