@@ -3,156 +3,176 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 
-st.set_page_config(page_title="WhereToHome Advisor", layout="wide")
+st.set_page_config(page_title="Real Estate Macro Simulator", layout="wide")
 
-st.title("🏡 WhereToHome Advisor")
-st.caption("A decision engine that matches you to cities based on your life profile")
+st.title("🏛️ Real Estate Macro Simulation Engine")
+st.caption("Portfolio-grade housing market simulator (multi-city, macro-sensitive)")
 
 # =========================================================
-# DATA
+# BASE DATA (STRUCTURAL ECONOMIC SIGNALS)
 # =========================================================
 df = pd.DataFrame([
-    ["Seattle", 850000, 0.88, 0.92, 0.78, 0.65, 0.80],
-    ["Los Angeles", 900000, 0.75, 0.95, 0.85, 0.55, 0.72],
-    ["Houston", 340000, 0.70, 0.80, 0.55, 0.60, 0.85],
-    ["Atlanta", 450000, 0.72, 0.86, 0.60, 0.58, 0.83],
-    ["Phoenix", 464000, 0.74, 0.83, 0.50, 0.62, 0.78],
-    ["Raleigh-Durham", 422000, 0.92, 0.88, 0.50, 0.75, 0.90],
-    ["Oakland", 780000, 0.78, 0.90, 0.90, 0.50, 0.65],
-    ["Tampa", 380000, 0.76, 0.82, 0.62, 0.55, 0.84],
+    ["Seattle", 850000, 0.80, 0.92, 0.75, 0.65, 0.70],
+    ["Los Angeles", 900000, 0.72, 0.95, 0.85, 0.55, 0.60],
+    ["Houston", 340000, 0.85, 0.80, 0.55, 0.60, 0.88],
+    ["Atlanta", 450000, 0.83, 0.86, 0.60, 0.58, 0.82],
+    ["Phoenix", 464000, 0.78, 0.83, 0.50, 0.62, 0.80],
+    ["Raleigh-Durham", 422000, 0.90, 0.88, 0.50, 0.75, 0.85],
+    ["Oakland", 780000, 0.65, 0.90, 0.90, 0.50, 0.55],
+    ["Tampa", 380000, 0.84, 0.82, 0.62, 0.55, 0.83],
+    ["Richmond", 355000, 0.80, 0.80, 0.65, 0.68, 0.78],
 ], columns=[
-    "city","price","schools","jobs","walk","safety","growth"
+    "city","price","growth","jobs","walk","safety","supply_constraint"
 ])
 
 # =========================================================
-# QUIZ FLOW STATE
+# MACRO SCENARIO CONTROLS (BLACKSTONE STYLE)
 # =========================================================
-if "step" not in st.session_state:
-    st.session_state.step = 0
+st.sidebar.header("📉 Macro Environment")
 
-def next_step():
-    st.session_state.step += 1
-
-# =========================================================
-# STEP 1: USER TYPE
-# =========================================================
-if st.session_state.step == 0:
-
-    st.subheader("Step 1 — Who are you?")
-    user_type = st.radio("Select profile", ["First-Time Buyer", "Investor", "Hybrid"])
-
-    st.session_state.user_type = user_type
-
-    st.button("Continue →", on_click=next_step)
+rate_shock = st.sidebar.slider("Interest Rate Shock", -2.0, 5.0, 1.5)
+recession = st.sidebar.slider("Recession Severity", 0.0, 1.0, 0.3)
+migration_boost = st.sidebar.slider("Sunbelt Migration Strength", 0.0, 1.0, 0.7)
+risk_off = st.sidebar.slider("Risk-Off Sentiment", 0.0, 1.0, 0.4)
 
 # =========================================================
-# STEP 2: PRIORITIES
+# NORMALIZATION
 # =========================================================
-elif st.session_state.step == 1:
+def norm(x):
+    return (x - x.min()) / (x.max() - x.min() + 1e-9)
 
-    st.subheader("Step 2 — What matters most to you?")
+f = df.copy()
 
-    if st.session_state.user_type == "First-Time Buyer":
-
-        st.session_state.school = st.slider("How important are good schools?", 0, 100, 80)
-        st.session_state.safety = st.slider("How important is safety?", 0, 100, 85)
-        st.session_state.afford = st.slider("How important is affordability?", 0, 100, 75)
-        st.session_state.walk = st.slider("How important is walkability?", 0, 100, 60)
-
-    else:
-
-        st.session_state.growth = st.slider("How important is growth/appreciation?", 0, 100, 85)
-        st.session_state.jobs = st.slider("How important is job proximity?", 0, 100, 80)
-        st.session_state.risk = st.slider("How much risk are you willing to take?", 0, 100, 60)
-
-    st.button("Get My Matches →", on_click=next_step)
+f["growth_n"] = norm(df["growth"])
+f["jobs_n"] = norm(df["jobs"])
+f["walk_n"] = norm(df["walk"])
+f["safety_n"] = norm(df["safety"])
+f["supply_n"] = norm(df["supply_constraint"])
+f["price_n"] = norm(df["price"])
 
 # =========================================================
-# STEP 3: SCORING ENGINE
+# MACRO MODEL (KEY INSTITUTIONAL LAYER)
 # =========================================================
 
-elif st.session_state.step == 2:
+# rate sensitivity (expensive cities hit harder)
+rate_impact = rate_shock * (1 - f["supply_n"])
 
-    st.subheader("Your Personalized Matches")
+# recession hits growth markets harder
+recession_impact = recession * (1 - f["safety_n"]) * (1 - f["supply_n"])
 
-    def norm(x):
-        return (x - x.min()) / (x.max() - x.min() + 1e-9)
+# migration benefit (Sunbelt tilt)
+migration = migration_boost * f["growth_n"]
 
-    f = df.copy()
+# risk-off penalizes volatility markets
+risk_penalty = risk_off * (1 - f["safety_n"])
 
-    f["price_n"] = norm(df["price"])
-    f["schools_n"] = norm(df["schools"])
-    f["jobs_n"] = norm(df["jobs"])
-    f["walk_n"] = norm(df["walk"])
-    f["safety_n"] = norm(df["safety"])
-    f["growth_n"] = norm(df["growth"])
+# =========================================================
+# FORWARD RETURN MODEL (SIMULATED 3-YEAR EXPECTED RETURN)
+# =========================================================
+base_return = (
+    0.6 * f["growth_n"] +
+    0.2 * f["jobs_n"] +
+    0.2 * f["supply_n"]
+)
 
-    # =====================================================
-    # QUIZ → WEIGHT ENGINE
-    # =====================================================
+f["expected_return_3y"] = base_return - rate_impact - recession_impact + migration - risk_penalty
 
-    if st.session_state.user_type == "First-Time Buyer":
+# =========================================================
+# RISK MODEL (VOLATILITY SCORE)
+# =========================================================
+f["risk"] = (
+    (1 - f["safety_n"]) +
+    (1 - f["supply_n"]) +
+    rate_shock * 0.1
+)
 
-        score = (
-            st.session_state.school * f["schools_n"] +
-            st.session_state.safety * f["safety_n"] +
-            st.session_state.afford * (1 - f["price_n"]) +
-            st.session_state.walk * f["walk_n"]
-        )
+# =========================================================
+# SHARPE-LIKE SCORE (RISK ADJUSTED RETURN)
+# =========================================================
+f["risk_adj_return"] = f["expected_return_3y"] / (f["risk"] + 0.1)
 
-    else:
+# =========================================================
+# FINAL SCORE (PORTFOLIO VIEW)
+# =========================================================
+f["final_score"] = (
+    0.7 * f["risk_adj_return"] +
+    0.3 * f["expected_return_3y"]
+)
 
-        score = (
-            st.session_state.growth * f["growth_n"] +
-            st.session_state.jobs * f["jobs_n"] +
-            st.session_state.risk * (f["growth_n"] + f["jobs_n"]) / 2
-        )
+# =========================================================
+# STRESS TEST OUTPUT
+# =========================================================
+st.subheader("🏦 Portfolio Ranking (Post-Macro Shock)")
 
-    f["score"] = score
+ranked = f.sort_values("final_score", ascending=False)
 
-    # diversification penalty (prevents one city dominating)
-    sim = np.corrcoef(f.iloc[:,1:7].T)
-    f["final_score"] = f["score"] - sim.mean(axis=1)
+st.dataframe(ranked[[
+    "city",
+    "price",
+    "expected_return_3y",
+    "risk",
+    "risk_adj_return",
+    "final_score"
+]])
 
-    ranked = f.sort_values("final_score", ascending=False)
+# =========================================================
+# TOP 3
+# =========================================================
+st.subheader("🏆 Optimal Portfolio Picks")
 
-    top3 = ranked.head(3)
+for _, r in ranked.head(3).iterrows():
+    st.markdown(f"""
+    ### {r['city']}
+    - Expected 3Y Return: {r['expected_return_3y']:.2f}
+    - Risk Score: {r['risk']:.2f}
+    - Risk-Adjusted Return: {r['risk_adj_return']:.2f}
 
-    # =====================================================
-    # OUTPUT
-    # =====================================================
+    **Macro Interpretation**
+    - {"Rate-sensitive asset" if r['risk'] > 0.5 else "Defensive asset"}
+    - {"Growth-driven market" if r['growth'] > 0.8 else "Stable market"}
+    - {"High migration tailwind" if r['growth'] > 0.75 else "Neutral migration exposure"}
+    ---
+    """)
 
-    st.success("Your Top 3 Matches")
+# =========================================================
+# VISUALS
+# =========================================================
 
-    for _, r in top3.iterrows():
-        st.markdown(f"""
-        ### 🏙️ {r['city']}
-        - Match Score: {r['final_score']:.2f}
-        - Price Level: ${r['price']:,.0f}
-        - Growth: {r['growth']:.2f}
-        - Safety: {r['safety']:.2f}
-        """)
+st.subheader("📊 Risk vs Return Frontier")
 
-    # =====================================================
-    # VISUALIZATION
-    # =====================================================
+fig = px.scatter(
+    ranked,
+    x="risk",
+    y="expected_return_3y",
+    size="price",
+    color="final_score",
+    text="city"
+)
 
-    st.subheader("Ranking Overview")
+st.plotly_chart(fig, use_container_width=True)
 
-    fig = px.bar(ranked, x="final_score", y="city", orientation="h")
-    st.plotly_chart(fig, use_container_width=True)
+st.subheader("📈 Final Ranking")
 
-    st.subheader("Tradeoff Map")
+fig2 = px.bar(
+    ranked.sort_values("final_score"),
+    x="final_score",
+    y="city",
+    orientation="h"
+)
 
-    fig2 = px.scatter(
-        ranked,
-        x="growth",
-        y="price",
-        size="walk",
-        color="final_score",
-        text="city"
-    )
+st.plotly_chart(fig2, use_container_width=True)
 
-    st.plotly_chart(fig2, use_container_width=True)
+# =========================================================
+# STRESS TEST VIEW
+# =========================================================
+st.subheader("⚠️ Stress Test Impact Breakdown")
 
-    st.button("Restart", on_click=lambda: st.session_state.update({"step": 0}))
+stress = pd.DataFrame({
+    "City": f["city"],
+    "Rate Impact": rate_impact,
+    "Recession Impact": recession_impact,
+    "Migration Boost": migration,
+    "Risk Penalty": risk_penalty
+})
+
+st.dataframe(stress)
