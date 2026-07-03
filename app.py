@@ -1,221 +1,209 @@
 # app.py
-# Real Estate Quant Hedge Fund Simulator + Buyer Intelligence Layer
-# Streamlit Institutional Decision Engine
-
 import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
-import plotly.graph_objects as go
-from sklearn.decomposition import PCA
-from sklearn.cluster import KMeans
-from sklearn.metrics.pairwise import cosine_similarity
 
 # =========================================================
-# PAGE CONFIG (INSTITUTIONAL UI)
+# CONFIG
 # =========================================================
-st.set_page_config(
-    page_title="Real Estate Quant Simulator",
-    page_icon="🏛️",
-    layout="wide"
-)
+st.set_page_config(page_title="Real Estate Quant Engine", layout="wide")
 
-st.markdown("""
-<style>
-body {
-    background-color: #070b14;
-    color: #e8eefc;
-}
-[data-testid="stAppViewContainer"] {
-    background: radial-gradient(circle at 10% 10%, #111a2e, #05070d 70%);
-}
-.block {
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 14px;
-    padding: 14px;
-    margin-bottom: 12px;
-}
-h1,h2,h3 { letter-spacing: 0.4px; }
-</style>
-""", unsafe_allow_html=True)
-
-st.title("🏛️ Real Estate Quant Hedge Fund Simulator")
-st.caption("Multi-factor risk-adjusted allocation engine (Buyer + Investor + Portfolio Simulation)")
+st.title("🏛️ Institutional Real Estate Intelligence Engine")
 
 # =========================================================
-# HARD-CODED DATASET (INSTITUTIONAL GRADE)
+# DATASET (buyer-engineered fundamentals)
 # =========================================================
 df = pd.DataFrame([
-    ["Seattle", 850000, 8.5, 74, 2.0, 0.35, 0.65, 0.55, 0.80, 0.85, 0.78, 0.72, 0.40, 0.70],
-    ["Los Angeles", 900000, 6.5, 67, 1.2, 0.55, 0.70, 0.60, 0.85, 0.90, 0.88, 0.60, 0.50, 0.85],
-    ["Houston", 340000, 5.5, 47, 2.3, 0.60, 0.40, 0.50, 0.65, 0.75, 0.55, 0.65, 0.75, 0.45],
-    ["Atlanta", 450000, 5.0, 48, 1.9, 0.58, 0.55, 0.60, 0.70, 0.80, 0.70, 0.68, 0.65, 0.60],
-    ["Phoenix", 464000, 6.0, 41, 1.6, 0.52, 0.50, 0.70, 0.68, 0.78, 0.62, 0.30, 0.90, 0.55],
-    ["San Antonio", 320000, 5.2, 38, 2.5, 0.45, 0.35, 0.45, 0.60, 0.72, 0.50, 0.62, 0.70, 0.40],
-    ["Raleigh-Durham", 422000, 8.0, 36, 2.8, 0.30, 0.60, 0.50, 0.75, 0.85, 0.66, 0.80, 0.35, 0.65],
-    ["Hampton Roads", 310000, 6.8, 35, 1.5, 0.40, 0.45, 0.40, 0.62, 0.70, 0.55, 0.75, 0.50, 0.35],
-    ["Oakland", 780000, 6.2, 72, 1.0, 0.65, 0.75, 0.70, 0.82, 0.88, 0.85, 0.55, 0.45, 0.90],
-    ["Tampa", 380000, 6.0, 51, 2.4, 0.55, 0.50, 0.65, 0.70, 0.80, 0.72, 0.60, 0.85, 0.60],
-    ["Richmond", 355000, 6.5, 52, 2.2, 0.42, 0.55, 0.50, 0.68, 0.76, 0.60, 0.70, 0.55, 0.50],
+    ["Seattle", 850000, 0.88, 0.92, 0.78, 0.65, 0.80, 0.40],
+    ["Los Angeles", 900000, 0.75, 0.95, 0.85, 0.55, 0.72, 0.50],
+    ["Houston", 340000, 0.70, 0.80, 0.55, 0.60, 0.85, 0.75],
+    ["Atlanta", 450000, 0.72, 0.86, 0.60, 0.58, 0.83, 0.65],
+    ["Phoenix", 464000, 0.74, 0.83, 0.50, 0.62, 0.78, 0.90],
+    ["San Antonio", 320000, 0.68, 0.78, 0.45, 0.66, 0.80, 0.70],
+    ["Raleigh-Durham", 422000, 0.92, 0.88, 0.50, 0.75, 0.90, 0.35],
+    ["Oakland", 780000, 0.78, 0.90, 0.90, 0.50, 0.65, 0.45],
+    ["Tampa", 380000, 0.76, 0.82, 0.62, 0.55, 0.84, 0.85],
+    ["Richmond", 355000, 0.82, 0.80, 0.65, 0.68, 0.78, 0.55],
 ], columns=[
-    "city","price","schools","walk","growth",
-    "crime","tax","volatility","liquidity","jobs",
-    "amenities","green","climate_risk","gentrification_risk"
+    "city","price","schools","jobs","walk","safety","growth","climate_risk"
 ])
 
 # =========================================================
-# MODE SELECTOR
+# MODE SWITCH
 # =========================================================
-mode = st.sidebar.selectbox("Client Mode", ["Buyer", "Investor", "Portfolio Simulation"])
-
-st.sidebar.header("Macro Controls")
-
-risk_appetite = st.sidebar.slider("Risk Appetite", 0, 100, 50)
-growth_bias = st.sidebar.slider("Growth Preference", 0, 100, 60)
-safety_bias = st.sidebar.slider("Safety Preference", 0, 100, 70)
-liquidity_bias = st.sidebar.slider("Liquidity Preference", 0, 100, 60)
-
-budget = st.sidebar.slider("Capital Constraint", int(df.price.min()), int(df.price.max()), 500000)
+mode = st.radio("Client Type", ["Buyer", "Investor"], horizontal=True)
 
 # =========================================================
-# NORMALIZATION ENGINE
+# SLIDERS (DIFFERENT LOGIC PER MODE)
 # =========================================================
-def norm(x):
-    return (x - x.min()) / (x.max() - x.min() + 1e-9)
 
-def inv(x):
-    return 1 - x
+st.sidebar.header("Preference Engine")
+
+if mode == "Buyer":
+
+    w_school = st.sidebar.slider("School Quality", 0, 100, 80)
+    w_safety = st.sidebar.slider("Safety Priority", 0, 100, 85)
+    w_afford = st.sidebar.slider("Affordability", 0, 100, 70)
+    w_walk = st.sidebar.slider("Walkability", 0, 100, 60)
+    w_growth = st.sidebar.slider("Long-term Stability", 0, 100, 65)
+
+    weights = {
+        "schools": w_school,
+        "safety": w_safety,
+        "afford": w_afford,
+        "walk": w_walk,
+        "growth": w_growth
+    }
+
+else:
+
+    w_growth = st.sidebar.slider("Growth / Appreciation", 0, 100, 85)
+    w_jobs = st.sidebar.slider("Job Proximity", 0, 100, 80)
+    w_rent = st.sidebar.slider("Rental Demand Proxy", 0, 100, 75)
+    w_liq = st.sidebar.slider("Liquidity / Resale", 0, 100, 70)
+    w_risk = st.sidebar.slider("Risk Tolerance", 0, 100, 60)
+
+    weights = {
+        "growth": w_growth,
+        "jobs": w_jobs,
+        "rent": w_rent,
+        "liq": w_liq,
+        "risk": w_risk
+    }
+
+# normalize weights
+w_sum = sum(weights.values())
+for k in weights:
+    weights[k] /= w_sum
+
+# =========================================================
+# NORMALIZATION (ROBUST + NON-LINEAR UTILITY)
+# =========================================================
+def norm(s):
+    return (s - s.min()) / (s.max() - s.min() + 1e-9)
 
 f = df.copy()
 
-# normalize
-for c in df.columns[1:]:
-    f[c] = norm(df[c])
+f["price_n"] = norm(df["price"])
+f["schools_n"] = norm(df["schools"])
+f["jobs_n"] = norm(df["jobs"])
+f["walk_n"] = norm(df["walk"])
+f["safety_n"] = norm(df["safety"])
+f["growth_n"] = norm(df["growth"])
+f["risk_n"] = 1 - norm(df["climate_risk"])  # invert
 
-# invert risks
-f["crime"] = inv(f["crime"])
-f["tax"] = inv(f["tax"])
-f["volatility"] = inv(f["volatility"])
-f["climate_risk"] = inv(f["climate_risk"])
-f["gentrification_risk"] = inv(f["gentrification_risk"])
+# utility curve (prevents dominance)
+def util(x):
+    return np.log1p(5 * x)
 
-# derived
-f["value"] = 1 - f["price"]
-f["quality"] = (f["schools"] + f["walk"]) / 2
-f["growth_signal"] = f["growth"]
-f["economic_strength"] = (f["jobs"] + f["liquidity"] + f["amenities"]) / 3
+for col in ["price_n","schools_n","jobs_n","walk_n","safety_n","growth_n","risk_n"]:
+    f[col] = util(f[col])
 
 # =========================================================
-# SCORING ENGINE (3 SYSTEMS)
+# SCORING ENGINE (UTILITY THEORY BASED)
 # =========================================================
-
-def buyer_score():
-    return (
-        0.30 * f["value"] +
-        0.25 * f["quality"] +
-        0.15 * f["growth_signal"] +
-        0.15 * f["crime"] +
-        0.15 * f["climate_risk"]
-    )
-
-def investor_score():
-    return (
-        0.35 * f["growth_signal"] +
-        0.25 * f["economic_strength"] +
-        0.20 * f["value"] +
-        0.10 * f["liquidity"] +
-        0.10 * f["volatility"]
-    )
-
-def portfolio_score():
-    return (
-        (buyer_score() + investor_score()) / 2
-        + 0.1 * risk_appetite/100 * f["growth_signal"]
-        - 0.1 * (1 - risk_appetite/100) * f["volatility"]
-    )
 
 if mode == "Buyer":
-    f["score"] = buyer_score()
-elif mode == "Investor":
-    f["score"] = investor_score()
+
+    f["score"] = (
+        weights["schools"] * f["schools_n"] +
+        weights["safety"] * f["safety_n"] +
+        weights["afford"] * (1 - f["price_n"]) +
+        weights["walk"] * f["walk_n"] +
+        weights["growth"] * f["growth_n"]
+    )
+
 else:
-    f["score"] = portfolio_score()
 
-# budget penalty (capital constraint realism)
-f["score"] = f["score"] * np.exp(-3 * np.clip(f["price"] - norm(df["price"])*budget, 0, 1))
-f["final_score"] = (f["score"] * 100).round(2)
+    f["score"] = (
+        weights["growth"] * f["growth_n"] +
+        weights["jobs"] * f["jobs_n"] +
+        weights["rent"] * (f["jobs_n"] + f["growth_n"]) / 2 +
+        weights["liq"] * f["walk_n"] +
+        weights["risk"] * f["risk_n"]
+    )
 
 # =========================================================
-# DIVERSIFICATION ENGINE (ANTI-HERDING)
+# DIVERSIFICATION (ANTI "ONE CITY DOMINATES")
 # =========================================================
-features_matrix = f.iloc[:,1:12]
-sim = cosine_similarity(features_matrix)
-f["similarity_penalty"] = sim.mean(axis=1)
-f["final_score"] = f["final_score"] - 10 * f["similarity_penalty"]
+X = f[["schools_n","jobs_n","walk_n","safety_n","growth_n","risk_n"]].values
 
-k = min(4, len(f))
-kmeans = KMeans(n_clusters=k, n_init=10, random_state=42)
-f["cluster"] = kmeans.fit_predict(features_matrix)
+sim = np.dot(X, X.T)
+sim = sim / (np.outer(np.linalg.norm(X, axis=1), np.linalg.norm(X, axis=1)) + 1e-9)
+
+div_penalty = sim.mean(axis=1)
+
+f["final_score"] = f["score"] - 0.35 * div_penalty
 
 # =========================================================
 # RANKING
 # =========================================================
 ranked = f.sort_values("final_score", ascending=False)
 
-top3 = []
-used = set()
+top3 = ranked.head(3)
 
-for _, r in ranked.iterrows():
-    if len(top3) == 3:
+# enforce diversity manually (ensures no duplicates cluster)
+chosen = []
+used_idx = set()
+
+for i, row in ranked.iterrows():
+    if len(chosen) == 3:
         break
-    if r["cluster"] not in used:
-        top3.append(r)
-        used.add(r["cluster"])
+    if row["city"] not in used_idx:
+        chosen.append(row)
+        used_idx.add(row["city"])
 
-top3 = pd.DataFrame(top3)
-
-# =========================================================
-# KPI
-# =========================================================
-c1,c2,c3 = st.columns(3)
-c1.metric("Top City", top3.iloc[0]["city"])
-c2.metric("Score", round(top3.iloc[0]["final_score"],2))
-c3.metric("Clusters Used", len(used))
+top3 = pd.DataFrame(chosen)
 
 # =========================================================
-# TOP 3 INSIGHT
+# OUTPUT
 # =========================================================
-st.subheader("🏛️ Top 3 Institutional Picks")
+st.subheader("🏆 Top 3 Recommendations")
 
 for _, r in top3.iterrows():
+
     st.markdown(f"""
-    <div class="block">
-    <b>{r['city']}</b><br>
-    Score: {r['final_score']:.2f}<br>
-    Cluster: {r['cluster']}<br>
-    Drivers: growth, risk-adjusted value, liquidity balance
-    </div>
-    """, unsafe_allow_html=True)
+    ### {r['city']}
+    - Score: {r['final_score']:.3f}
+    - Price: ${r['price']:,}
+    - Growth: {r['growth']:.2f}
+    - Safety: {r['safety']:.2f}
+
+    **Key Drivers**
+    - {"Strong school system" if r['schools'] > df['schools'].median() else "Below-average school system"}
+    - {"High job density" if r['jobs'] > df['jobs'].median() else "Moderate job access"}
+    - {"Strong walkability" if r['walk'] > df['walk'].median() else "Car-dependent structure"}
+    ---
+    """)
 
 # =========================================================
 # VISUALS
 # =========================================================
-st.subheader("📊 Ranking Board")
-st.plotly_chart(px.bar(ranked, x="final_score", y="city", orientation="h", color="final_score"))
 
-st.subheader("🌍 Risk vs Return")
-st.plotly_chart(px.scatter(ranked, x="growth", y="price", color="final_score", size="walk"))
+st.subheader("📊 Ranking Overview")
 
-st.subheader("🧠 PCA STRUCTURE")
-pca = PCA(n_components=2)
-proj = pca.fit_transform(features_matrix)
+fig = px.bar(ranked, x="final_score", y="city", orientation="h", color="final_score")
+st.plotly_chart(fig, use_container_width=True)
 
-fig = px.scatter(x=proj[:,0], y=proj[:,1], color=f["cluster"], text=f["city"])
-st.plotly_chart(fig)
+st.subheader("📍 Risk vs Growth Tradeoff")
+
+fig2 = px.scatter(
+    ranked,
+    x="risk_n",
+    y="growth_n",
+    size="walk_n",
+    color="final_score",
+    text="city"
+)
+
+st.plotly_chart(fig2, use_container_width=True)
 
 # =========================================================
-# TABLE
+# FULL TABLE
 # =========================================================
-st.subheader("📋 Full Allocation Table")
-st.dataframe(ranked[["city","final_score","cluster","price","growth","jobs","liquidity"]])
+st.subheader("📋 Full Model Output")
+
+st.dataframe(
+    ranked[["city","price","final_score","growth","jobs","walk","safety"]]
+)
