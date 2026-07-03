@@ -4,7 +4,7 @@ City Investment & Home-Buyer Intelligence Dashboard
 Run locally:    streamlit run app.py
 Deploy:         push to GitHub, connect the repo at streamlit.io/cloud
 
-Data sources: see data/cities_data.csv (curated snapshot) and
+Data sources: see cities_data.csv (curated snapshot) and
 scripts/fetch_growth_data.py (live Census population data puller).
 """
 
