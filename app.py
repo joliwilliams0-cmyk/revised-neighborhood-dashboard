@@ -91,34 +91,9 @@ ACCENT3 = "#7C4DFF"
 # ----------------------------------------------------------------------
 # DATA LOADING & PREPARATION
 # ----------------------------------------------------------------------
-@st.cache_data
-def load_data():
-    base_path = os.path.dirname(os.path.abspath(__file__))
-    path = os.path.join(base_path, "data", "cities_data.csv")
-    
-    if not os.path.exists(path):
-        st.error(f"Could not find data file at: {path}")
-        return None
-        
-    try:
-        df = pd.read_csv(path)
-        
-        # Clean currency columns before converting
-        for col in ["median_home_price"]:
-            if col in df.columns and df[col].dtype == object:
-                df[col] = df[col].replace(r'[\$,]', '', regex=True)
-                
-        numeric_cols = [
-            "lat", "lon", "median_home_price", "price_trend_pct",
-            "walk_score", "school_score", "population_growth_pct",
-        ]
-        for col in numeric_cols:
-            if col in df.columns:
-                df[col] = pd.to_numeric(df[col], errors="coerce")
-        return df
-    except Exception as e:
-        st.error(f"Error loading or processing data: {e}")
-        return None
+File "/mount/src/revised-neighborhood-dashboard/app.py", line 216, in <module>
+    scored = score_dataframe(df_raw)
+                             ^^^^^^
 # ----------------------------------------------------------------------
 # SIDEBAR CONTROLS
 # ----------------------------------------------------------------------
