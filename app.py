@@ -94,7 +94,7 @@ ACCENT3 = "#7C4DFF"
 # ----------------------------------------------------------------------
 @st.cache_data
 def load_data():
-    path = os.path.join(os.path.dirname(__file__), "data", "cities_data.csv")
+    path = "data/cities_data.csv"
     df = pd.read_csv(path)
     numeric_cols = [
         "lat", "lon", "median_home_price", "price_trend_pct",
