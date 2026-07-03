@@ -94,7 +94,7 @@ ACCENT3 = "#7C4DFF"
 # ----------------------------------------------------------------------
 @st.cache_data
 def load_data():
-    path = os.path.join(os.path.dirname(__file__), "data", "cities_data.csv")
+    path = os.path.join(os.path.dirname(__file__), "data", "data/cities_data.csv")
     df = pd.read_csv(path)
     numeric_cols = [
         "lat", "lon", "median_home_price", "price_trend_pct",
@@ -217,7 +217,7 @@ st.markdown(
 st.write("")
 
 if scored.empty:
-    st.warning("No cities match your current budget / match % filters. Try loosening them in the sidebar.")
+    st.warning("No s match your current budget / match % filters. Try loosening them in the sidebar.")
     st.stop()
 
 top = scored.iloc[0]
@@ -230,7 +230,7 @@ kpi_data = [
     (k1, "Top Match", top["city"], f'{top["composite"]}% match'),
     (k2, "Avg Median Price", f'${scored["median_home_price"].mean():,.0f}', ""),
     (k3, "Avg Growth Score", f'{scored["growth_score"].mean():.0f}/100', ""),
-    (k4, "Cities in View", f'{len(scored)} of {len(df_raw)}', ""),
+    (k4, "s in View", f'{len(scored)} of {len(df_raw)}', ""),
 ]
 for col, label, value, delta in kpi_data:
     with col:
