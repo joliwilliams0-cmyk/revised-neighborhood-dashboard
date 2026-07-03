@@ -6,7 +6,6 @@ Run: streamlit run app.py
 import os
 import pandas as pd
 import numpy as np
-import plotly.graph_objects as go
 import plotly.express as px
 import streamlit as st
 
@@ -20,7 +19,7 @@ st.set_page_config(
 )
 
 # ----------------------------------------------------------------------
-# SIMPLE CLEAN THEME (stable)
+# SIMPLE THEME
 # ----------------------------------------------------------------------
 st.markdown("""
 <style>
@@ -49,7 +48,19 @@ def load_data():
     except:
         df = pd.DataFrame(FALLBACK_DATA)
 
-    df["median_home_price"] = pd.to_numeric(df["median_home_price"], errors="coerce")
+    # ✅ FIX: force numeric columns
+    numeric_cols = [
+        "median_home_price",
+        "price_trend_pct",
+        "walk_score",
+        "school_score",
+        "population_growth_pct"
+    ]
+
+    for col in numeric_cols:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+
     return df
 
 df_raw = load_data()
@@ -66,15 +77,18 @@ w_school = st.sidebar.slider("Schools", 0, 100, 15)
 
 weight_sum = max(w_afford + w_growth + w_walk + w_school, 1)
 
+# ✅ FIX: safe budget slider
+valid_prices = df_raw["median_home_price"].dropna()
+
 budget = st.sidebar.slider(
     "Max Budget",
-    int(df_raw["median_home_price"].min()),
-    int(df_raw["median_home_price"].max()),
-    int(df_raw["median_home_price"].max()),
+    int(valid_prices.min()),
+    int(valid_prices.max()),
+    int(valid_prices.max()),
 )
 
 # ----------------------------------------------------------------------
-# SCORING FUNCTIONS
+# SCORING
 # ----------------------------------------------------------------------
 def minmax(series, invert=False):
     lo, hi = series.min(), series.max()
@@ -86,13 +100,15 @@ def minmax(series, invert=False):
 def score(df):
     d = df.copy()
 
-    d["afford_score"] = minmax(df_raw["median_home_price"], invert=True)
+    d["afford_score"] = minmax(df["median_home_price"], invert=True)
+
     d["growth_score"] = minmax(
-        df_raw["population_growth_pct"]*0.6 +
-        df_raw["price_trend_pct"].clip(lower=0)*0.4
+        df["population_growth_pct"].fillna(0)*0.6 +
+        df["price_trend_pct"].fillna(0).clip(lower=0)*0.4
     )
-    d["walk_norm"] = minmax(df_raw["walk_score"])
-    d["school_norm"] = minmax(df_raw["school_score"])
+
+    d["walk_norm"] = minmax(df["walk_score"].fillna(0))
+    d["school_norm"] = minmax(df["school_score"].fillna(0))
 
     d["composite"] = (
         d["afford_score"]*(w_afford/weight_sum) +
@@ -128,10 +144,10 @@ st.write("Find the best cities based on your priorities")
 col1, col2, col3 = st.columns(3)
 col1.metric("Top City", top["city"])
 col2.metric("Match %", f"{top['composite']}%")
-col3.metric("Median Price", f"${top['median_home_price']:,}")
+col3.metric("Median Price", f"${int(top['median_home_price']):,}")
 
 # ----------------------------------------------------------------------
-# MAP (FIXED)
+# MAP
 # ----------------------------------------------------------------------
 fig_map = px.scatter_mapbox(
     scored,
@@ -162,4 +178,3 @@ st.plotly_chart(fig_bar, use_container_width=True)
 # ----------------------------------------------------------------------
 st.subheader("Data")
 st.dataframe(scored)
-
