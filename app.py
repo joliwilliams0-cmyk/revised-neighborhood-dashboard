@@ -117,6 +117,8 @@ NUMERIC_COLS = [
 
 
 @st.cache_data
+st.write("Data Preview (First 5 rows):")
+st.write(df_raw.head())
 def load_data():
     # Resolve the path relative to this file, not the current working
     # directory -- Streamlit Cloud's working directory isn't always the
