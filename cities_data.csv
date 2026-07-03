@@ -1,0 +1,12 @@
+city,state,metro_label,lat,lon,median_home_price,price_trend_pct,walk_score,school_score,population_growth_pct,notes
+Seattle,WA,Seattle-Tacoma-Bellevue,47.6062,-122.3321,857500,-2.5,74,6.5,1.0,Tech-driven economy cooling slightly; strong suburban districts (Bellevue, Mercer Island)
+Los Angeles,CA,Los Angeles-Long Beach-Anaheim,34.0522,-118.2437,900000,0.0,68,5.5,0.0,Huge price spread by neighborhood; strong inbound demand from SF
+Houston,TX,Houston-The Woodlands-Sugar Land,29.7604,-95.3698,340000,1.5,47,5.5,2.0,Only major TX metro with positive YoY growth; diversified economy; high flood risk
+Atlanta,GA,Atlanta-Sandy Springs-Alpharetta,33.7490,-84.3880,450000,0.5,48,5.0,1.8,Strong Sun Belt migration draw and corporate relocations
+Phoenix,AZ,Phoenix-Mesa-Chandler,33.4484,-112.0740,464000,0.9,41,6.0,1.5,Cooling from pandemic-era peak but still growing; heat/water are long-term risks
+San Antonio,TX,San Antonio-New Braunfels,29.4241,-98.4936,280000,2.0,38,5.0,1.8,Most affordable major TX metro; military/healthcare anchored
+Raleigh,NC,Raleigh-Durham-Cary,35.7796,-78.6382,422500,-1.0,35,8.0,2.5,Research Triangle tech/biotech/university economy; Wake County schools rank among best in Southeast
+Hampton Roads,VA,Virginia Beach-Norfolk-Newport News,36.8529,-75.9780,435000,4.5,38,6.5,0.5,Military/defense-anchored economy (Naval Station Norfolk); stable and less cyclical
+Oakland,CA,San Francisco-Oakland-Berkeley,37.8044,-122.2712,810000,-2.0,75,5.0,0.0,Cheaper alternative to SF pulling in-migration; BART access; #7 most walkable US city
+Tampa,FL,Tampa-St. Petersburg-Clearwater,27.9506,-82.4572,443000,-1.4,44,6.0,1.8,Florida migration story decelerating; high flood/wind risk exposure
+Richmond,VA,Richmond,37.5407,-77.4360,425000,3.0,48,6.0,1.2,State capital + healthcare/finance base; steady unspectacular growth
