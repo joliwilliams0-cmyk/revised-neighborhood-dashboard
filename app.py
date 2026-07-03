@@ -94,7 +94,16 @@ ACCENT3 = "#7C4DFF"
 # ----------------------------------------------------------------------
 @st.cache_data
 def load_data():
-    path = "data/cities_data.csv"
+    # Use __file__ to get the directory of the current script, 
+    # ensuring the path is correct regardless of where the app is deployed.
+    base_path = os.path.dirname(os.path.abspath(__file__))
+    path = os.path.join(base_path, "data", "cities_data.csv")
+    
+    # Debugging check (optional, but helpful if it fails again)
+    if not os.path.exists(path):
+        st.error(f"File not found at: {path}. Please ensure 'data/cities_data.csv' exists.")
+        st.stop()
+        
     df = pd.read_csv(path)
     numeric_cols = [
         "lat", "lon", "median_home_price", "price_trend_pct",
@@ -103,10 +112,6 @@ def load_data():
     for col in numeric_cols:
         df[col] = pd.to_numeric(df[col], errors="coerce")
     return df
-
-
-df_raw = load_data()
-
 # ----------------------------------------------------------------------
 # SIDEBAR CONTROLS
 # ----------------------------------------------------------------------
