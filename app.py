@@ -4,19 +4,19 @@ import streamlit as st
 import plotly.express as px
 
 # =========================================================
-# CONFIG
+# PAGE CONFIG
 # =========================================================
 st.set_page_config(
-    page_title="Metro Intelligence Engine",
+    page_title="Metro Intelligence Platform",
     page_icon="🏙️",
     layout="wide"
 )
 
-st.title("🏙️ Metro Intelligence Engine")
-st.caption("Power BI-style multi-factor decision model for U.S. housing markets")
+st.title("🏙️ Metro Intelligence Platform")
+st.caption("FAANG-style multi-model decision engine (Buyer + Investor intelligence system)")
 
 # =========================================================
-# DATA (NO API REQUIRED)
+# DATASET
 # =========================================================
 df = pd.DataFrame([
     ["Seattle, WA", 47.6062, -122.3321, 850000, 8.5, 74, 2.0],
@@ -30,19 +30,19 @@ df = pd.DataFrame([
     ["Oakland, CA", 37.8044, -122.2712, 780000, 6.2, 72, 1.0],
     ["Tampa, FL", 27.9506, -82.4572, 380000, 6.0, 51, 2.4],
     ["Richmond, VA", 37.5407, -77.4360, 355000, 6.5, 52, 2.2],
-], columns=[
-    "City", "lat", "lon", "Price", "School", "Walk", "Growth"
-])
+], columns=["City", "lat", "lon", "Price", "School", "Walk", "Growth"])
 
 # =========================================================
-# SIDEBAR (POWER BI SLICERS)
+# SIDEBAR CONTROLS
 # =========================================================
-st.sidebar.header("🎛️ Decision Controls")
+st.sidebar.header("🎯 Decision Controls")
 
-price_w = st.sidebar.slider("🏠 Home Price Weight", 0, 100, 40)
-school_w = st.sidebar.slider("🏫 School Weight", 0, 100, 25)
-walk_w = st.sidebar.slider("🚶 Walkability Weight", 0, 100, 20)
-growth_w = st.sidebar.slider("📈 Growth Weight", 0, 100, 15)
+mode = st.sidebar.selectbox("Mode", ["Buyer", "Investor"])
+
+price_w = st.sidebar.slider("🏠 Price Importance", 0, 100, 40)
+school_w = st.sidebar.slider("🏫 School Importance", 0, 100, 25)
+walk_w = st.sidebar.slider("🚶 Walkability Importance", 0, 100, 20)
+growth_w = st.sidebar.slider("📈 Growth Importance", 0, 100, 15)
 
 budget = st.sidebar.slider(
     "💰 Max Budget",
@@ -54,61 +54,67 @@ budget = st.sidebar.slider(
 total = max(price_w + school_w + walk_w + growth_w, 1)
 
 # =========================================================
-# NORMALIZATION ENGINE
+# NORMALIZATION + NONLINEARITY
 # =========================================================
-def norm(series):
-    return (series - series.min()) / (series.max() - series.min() + 1e-9)
+def norm(x):
+    return (x - x.min()) / (x.max() - x.min() + 1e-9)
 
-def diminishing(x, power):
-    return np.power(x, power)
+def curve(x, p):
+    return np.power(x, p)
 
-def budget_penalty(price, budget):
-    ratio = price / budget
-    return np.exp(-3 * np.clip(ratio - 0.85, 0, None))
+def penalty(price, budget):
+    return np.exp(-3 * np.clip(price / budget - 0.85, 0, None))
 
-# =========================================================
-# FEATURE ENGINEERING
-# =========================================================
-df["Price_n"] = norm(df["Price"])
-df["School_n"] = norm(df["School"])
-df["Walk_n"] = norm(df["Walk"])
-df["Growth_n"] = norm(df["Growth"])
+df["price_n"] = norm(df["Price"])
+df["school_n"] = norm(df["School"])
+df["walk_n"] = norm(df["Walk"])
+df["growth_n"] = norm(df["Growth"])
 
-# nonlinear utility transformation (key improvement)
-df["Price_u"] = 1 - diminishing(df["Price_n"], 0.9)
-df["School_u"] = diminishing(df["School_n"], 0.75)
-df["Walk_u"] = diminishing(df["Walk_n"], 0.65)
-df["Growth_u"] = diminishing(df["Growth_n"], 0.80)
+# utility transforms
+df["afford"] = 1 - curve(df["price_n"], 0.9)
+df["school_u"] = curve(df["school_n"], 0.75)
+df["walk_u"] = curve(df["walk_n"], 0.65)
+df["growth_u"] = curve(df["growth_n"], 0.8)
 
-# budget realism penalty (prevents unrealistic picks)
-df["Penalty"] = budget_penalty(df["Price"], budget)
+df["overheat"] = curve(df["price_n"] * df["growth_n"], 1.4)
+df["penalty"] = penalty(df["Price"], budget)
 
 # =========================================================
-# FINAL UTILITY SCORE (POWER BI STYLE MEASURE)
+# MODELS (BUYER vs INVESTOR)
 # =========================================================
-df["Utility"] = (
-    df["Price_u"] * (price_w / total) +
-    df["School_u"] * (school_w / total) +
-    df["Walk_u"] * (walk_w / total) +
-    df["Growth_u"] * (growth_w / total)
-)
+if mode == "Buyer":
+    df["score"] = (
+        0.35 * df["afford"] +
+        0.30 * (df["school_u"] + df["walk_u"]) / 2 +
+        0.20 * df["growth_u"] +
+        0.15 * (1 - df["overheat"])
+    )
+else:
+    df["score"] = (
+        0.40 * df["growth_u"] +
+        0.25 * (1 - df["price_n"]) +
+        0.20 * df["afford"] +
+        0.15 * (1 - df["overheat"])
+    )
 
-df["Score"] = (df["Utility"] * df["Penalty"] * 100).round(1)
+df["score"] = df["score"] * df["penalty"]
+df["Score"] = (df["score"] * 100).round(1)
 
 # =========================================================
 # FILTER
 # =========================================================
-filtered = df[df["Price"] <= budget].sort_values("Score", ascending=False)
+df = df[df["Price"] <= budget].copy()
+df = df.sort_values("Score", ascending=False)
 
-if filtered.empty:
-    st.warning("No cities match your budget constraints.")
+if df.empty:
+    st.warning("No cities match your filters.")
     st.stop()
 
-top = filtered.iloc[0]
-top3 = filtered.head(3)
+top = df.iloc[0]
+top3 = df.head(3)
 
 # =========================================================
-# KPI STRIP (EXECUTIVE VIEW)
+# KPI STRIP
 # =========================================================
 c1, c2, c3, c4 = st.columns(4)
 
@@ -118,35 +124,39 @@ c3.metric("🏠 Price", f"${int(top['Price']):,}")
 c4.metric("📈 Growth", f"{top['Growth']}%")
 
 # =========================================================
-# INSIGHT ENGINE
+# EXPLANATION ENGINE
 # =========================================================
 def explain(row):
     reasons = []
 
-    if row["Price"] < budget * 0.75:
-        reasons.append("strong affordability buffer")
-    if row["School_u"] > 0.7:
-        reasons.append("high school quality signal")
-    if row["Walk_u"] > 0.7:
-        reasons.append("walkable urban design")
-    if row["Growth_u"] > 0.7:
-        reasons.append("strong growth momentum")
-    if row["Penalty"] < 0.9:
-        reasons.append("budget pressure reduces utility")
+    if mode == "Buyer":
+        if row["afford"] > 0.7:
+            reasons.append("high affordability advantage")
+        if row["school_u"] > 0.7:
+            reasons.append("strong schools & walkability")
+        if row["overheat"] < 0.4:
+            reasons.append("low overheating risk")
+    else:
+        if row["growth_u"] > 0.7:
+            reasons.append("strong appreciation potential")
+        if row["price_n"] < 0.5:
+            reasons.append("undervalued market position")
+        if row["overheat"] < 0.5:
+            reasons.append("stable investment cycle")
 
-    return " • ".join(reasons) if reasons else "balanced tradeoff profile across all dimensions"
+    return " • ".join(reasons) if reasons else "balanced tradeoff profile"
 
-st.subheader("🧠 Decision Explanation Layer")
-st.success(f"{top['City']} is the optimal match under your weighting model.")
+st.subheader("🧠 AI-Style Decision Engine")
+st.success(f"{top['City']} is the optimal match for a {mode}.")
 st.info(explain(top))
 
 # =========================================================
-# MAP VISUAL (CORE POWER BI VISUAL)
+# MAP
 # =========================================================
-st.subheader("🗺️ Geographic Intelligence Map")
+st.subheader("🗺️ Market Map")
 
 fig_map = px.scatter_mapbox(
-    filtered,
+    df,
     lat="lat",
     lon="lon",
     size="Score",
@@ -159,12 +169,12 @@ fig_map = px.scatter_mapbox(
 st.plotly_chart(fig_map, use_container_width=True)
 
 # =========================================================
-# RANKING VISUAL
+# RANKING
 # =========================================================
-st.subheader("🏆 Ranking Dashboard")
+st.subheader("🏆 Ranking Board")
 
 fig_bar = px.bar(
-    filtered,
+    df,
     x="Score",
     y="City",
     orientation="h",
@@ -172,17 +182,17 @@ fig_bar = px.bar(
     text="Score"
 )
 
-fig_bar.update_layout(yaxis={'categoryorder':'total ascending'})
+fig_bar.update_layout(yaxis={'categoryorder': 'total ascending'})
 
 st.plotly_chart(fig_bar, use_container_width=True)
 
 # =========================================================
-# TRADEOFF MODEL VISUAL
+# TRADEOFF ANALYSIS
 # =========================================================
-st.subheader("💡 Tradeoff Intelligence (Price vs Opportunity)")
+st.subheader("💡 Tradeoff Intelligence")
 
 fig_scatter = px.scatter(
-    filtered,
+    df,
     x="Price",
     y="Score",
     size="Walk",
@@ -193,18 +203,18 @@ fig_scatter = px.scatter(
 st.plotly_chart(fig_scatter, use_container_width=True)
 
 # =========================================================
-# TOP 3 SUMMARY
+# TOP 3
 # =========================================================
-st.subheader("🥇 Top 3 Recommendations")
+st.subheader("🥇 Top 3 Cities")
 
-st.dataframe(
-    top3[["City", "Score", "Price", "School", "Walk", "Growth"]],
-    use_container_width=True
-)
+for _, r in top3.iterrows():
+    st.markdown(f"""
+### {r['City']} — {r['Score']}%
+{explain(r)}
+""")
 
 # =========================================================
 # FULL DATA
 # =========================================================
 st.subheader("📋 Full Dataset")
-
-st.dataframe(filtered, use_container_width=True)
+st.dataframe(df, use_container_width=True)
