@@ -88,7 +88,6 @@ ACCENT = "#00E5FF"
 ACCENT2 = "#FF4DD8"
 ACCENT3 = "#7C4DFF"
 
-
 # ----------------------------------------------------------------------
 # DATA LOADING & PREPARATION
 # ----------------------------------------------------------------------
@@ -102,20 +101,25 @@ def load_data():
         st.error(f"Could not find data file at: {path}")
         return None
         
-    df = pd.read_csv(path)
-    numeric_cols = [
-        "lat", "lon", "median_home_price", "price_trend_pct",
-        "walk_score", "school_score", "population_growth_pct",
-    ]
-    for col in numeric_cols:
-        df[col] = pd.to_numeric(df[col], errors="coerce")
-    return df
+    try:
+        df = pd.read_csv(path)
+        numeric_cols = [
+            "lat", "lon", "median_home_price", "price_trend_pct",
+            "walk_score", "school_score", "population_growth_pct",
+        ]
+        for col in numeric_cols:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+        return df
+    except Exception as e:
+        st.error(f"Error loading or processing data: {e}")
+        return None
 
 # Load the data safely
 df_raw = load_data()
 
 # Stop the app if data failed to load
-if df_raw is None:
+if df_raw is None or df_raw.empty:
+    st.error("Data could not be loaded. Please check the 'data/cities_data.csv' file.")
     st.stop()
 # ----------------------------------------------------------------------
 # SIDEBAR CONTROLS
