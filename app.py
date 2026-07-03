@@ -164,8 +164,8 @@ st.sidebar.markdown("---")
 budget = st.sidebar.slider(
     "Max Budget ($)",
     min_value=200_000,
-    max_value=1_000_000,
-    value=1_000_000,
+    max_value=2_000_000,
+    value=2_000_000,
     step=10_000,
     format="$%d",
 )
