@@ -18,18 +18,19 @@ st.caption("Institutional-grade city matching system (Buyer + Investor logic sep
 # -----------------------------
 # REALISTIC METRO BENCHMARK DATA
 # -----------------------------
+# Renamed keys for cleaner display
 CITY_DATA = {
-    "Seattle, WA":        {"job_growth": 0.028, "home_price": 850000, "rent_yield": 0.045, "safety": 0.62, "pop_growth": 0.012},
-    "Los Angeles, CA":    {"job_growth": 0.022, "home_price": 900000, "rent_yield": 0.038, "safety": 0.55, "pop_growth": 0.010},
-    "Houston, TX":        {"job_growth": 0.030, "home_price": 330000, "rent_yield": 0.060, "safety": 0.58, "pop_growth": 0.018},
-    "Atlanta, GA":        {"job_growth": 0.035, "home_price": 410000, "rent_yield": 0.055, "safety": 0.60, "pop_growth": 0.020},
-    "Phoenix, AZ":        {"job_growth": 0.033, "home_price": 460000, "rent_yield": 0.058, "safety": 0.57, "pop_growth": 0.022},
-    "San Antonio, TX":    {"job_growth": 0.029, "home_price": 310000, "rent_yield": 0.061, "safety": 0.61, "pop_growth": 0.017},
-    "Raleigh-Durham, NC": {"job_growth": 0.038, "home_price": 520000, "rent_yield": 0.052, "safety": 0.72, "pop_growth": 0.025},
-    "Hampton Roads, VA":  {"job_growth": 0.024, "home_price": 300000, "rent_yield": 0.050, "safety": 0.64, "pop_growth": 0.011},
-    "Oakland, CA":        {"job_growth": 0.025, "home_price": 800000, "rent_yield": 0.036, "safety": 0.54, "pop_growth": 0.009},
-    "Tampa, FL":          {"job_growth": 0.036, "home_price": 420000, "rent_yield": 0.065, "safety": 0.63, "pop_growth": 0.023},
-    "Richmond, VA":       {"job_growth": 0.031, "home_price": 380000, "rent_yield": 0.057, "safety": 0.66, "pop_growth": 0.014},
+    "Seattle, WA":        {"Job Growth": 0.028, "Home Price": 850000, "Rent Yield": 0.045, "Safety": 0.62, "Population Growth": 0.012},
+    "Los Angeles, CA":    {"Job Growth": 0.022, "Home Price": 900000, "Rent Yield": 0.038, "Safety": 0.55, "Population Growth": 0.010},
+    "Houston, TX":        {"Job Growth": 0.030, "Home Price": 330000, "Rent Yield": 0.060, "Safety": 0.58, "Population Growth": 0.018},
+    "Atlanta, GA":        {"Job Growth": 0.035, "Home Price": 410000, "Rent Yield": 0.055, "Safety": 0.60, "Population Growth": 0.020},
+    "Phoenix, AZ":        {"Job Growth": 0.033, "Home Price": 460000, "Rent Yield": 0.058, "Safety": 0.57, "Population Growth": 0.022},
+    "San Antonio, TX":    {"Job Growth": 0.029, "Home Price": 310000, "Rent Yield": 0.061, "Safety": 0.61, "Population Growth": 0.017},
+    "Raleigh-Durham, NC": {"Job Growth": 0.038, "Home Price": 520000, "Rent Yield": 0.052, "Safety": 0.72, "Population Growth": 0.025},
+    "Hampton Roads, VA":  {"Job Growth": 0.024, "Home Price": 300000, "Rent Yield": 0.050, "Safety": 0.64, "Population Growth": 0.011},
+    "Oakland, CA":        {"Job Growth": 0.025, "Home Price": 800000, "Rent Yield": 0.036, "Safety": 0.54, "Population Growth": 0.009},
+    "Tampa, FL":          {"Job Growth": 0.036, "Home Price": 420000, "Rent Yield": 0.065, "Safety": 0.63, "Population Growth": 0.023},
+    "Richmond, VA":       {"Job Growth": 0.031, "Home Price": 380000, "Rent Yield": 0.057, "Safety": 0.66, "Population Growth": 0.014},
 }
 df = pd.DataFrame(CITY_DATA).T
 
@@ -39,6 +40,7 @@ df = pd.DataFrame(CITY_DATA).T
 def zscore(series):
     return (series - series.mean()) / series.std()
 
+# Create z_df based on the clean column names
 z_df = df.copy()
 for col in df.columns:
     z_df[col] = zscore(df[col])
@@ -74,7 +76,6 @@ if st.session_state.mode is None:
 # -----------------------------
 if st.session_state.mode == "buyer":
     st.sidebar.header("Buyer Preferences")
-    # Updated to better reflect median home price ranges
     budget = st.sidebar.selectbox("Budget Range", ["<350k", "350-550k", "550-750k", "750k+"])
     climate = st.sidebar.selectbox("Climate Preference", ["warm", "mild", "cold"])
     walkability = st.sidebar.slider("Walkability importance", 0, 10, 5)
@@ -102,20 +103,21 @@ def compute_scores(mode, prefs):
     for city in df.index:
         r = z_df.loc[city]
         if mode == "buyer":
-            raw = (r["safety"] * (1 + prefs["safety"] * 0.12) + 
-                   r["job_growth"] * 0.8 + 
-                   r["pop_growth"] * 0.7 + 
-                   r["rent_yield"] * 0.2 - 
-                   r["home_price"] * 0.9)
-            affordability_penalty = np.tanh(df.loc[city, "home_price"] / 700000)
+            # Updated to match new clean column names
+            raw = (r["Safety"] * (1 + prefs["safety"] * 0.12) + 
+                   r["Job Growth"] * 0.8 + 
+                   r["Population Growth"] * 0.7 + 
+                   r["Rent Yield"] * 0.2 - 
+                   r["Home Price"] * 0.9)
+            affordability_penalty = np.tanh(df.loc[city, "Home Price"] / 700000)
             score = sigmoid(raw - affordability_penalty)
         else:
-            raw = (r["rent_yield"] * (1 + prefs["risk"] * 0.18) + 
-                   r["job_growth"] * 0.9 + 
-                   r["pop_growth"] * 0.8 + 
-                   r["safety"] * 0.3 - 
-                   r["home_price"] * 0.7)
-            volatility_penalty = abs(r["home_price"]) * 0.15
+            raw = (r["Rent Yield"] * (1 + prefs["risk"] * 0.18) + 
+                   r["Job Growth"] * 0.9 + 
+                   r["Population Growth"] * 0.8 + 
+                   r["Safety"] * 0.3 - 
+                   r["Home Price"] * 0.7)
+            volatility_penalty = abs(r["Home Price"]) * 0.15
             score = sigmoid(raw - volatility_penalty)
         scores[city] = score
     return pd.Series(scores).sort_values(ascending=False)
