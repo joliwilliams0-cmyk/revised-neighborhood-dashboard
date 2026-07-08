@@ -144,17 +144,21 @@ full.columns = ["City", "Match Percentage"]
 # Convert scores to percentage for display
 full["Match Percentage"] = (full["Match Percentage"] * 100).round(1).astype(str) + "%"
 
-# For Top 3, we ensure the index does not show, using the formatted DF
-top3 = full.head(3)
+# Ensure it is a DataFrame and reset the index
+top3 = scores.head(3).reset_index()
+top3.columns = ["City", "Match Percentage"]
+
+# Convert scores to percentage for display
+top3["Match Percentage"] = (top3["Match Percentage"] * 100).round(1).astype(str) + "%"
 
 # -----------------------------
 # RESULTS
 # -----------------------------
 st.subheader("📊 Top City Recommendations")
 st.write("Top 3 Cities (Ranked):")
-# Use index=False to hide the default numeric index
-st.dataframe(top3, index=False)
 
+# Use this to avoid index errors
+st.dataframe(top3, hide_index=True)
 tab1, tab2, tab3, tab4 = st.tabs(["🏆 Top Cities", "📊 Data Breakdown", "📈 Charts", "🧠 Why These Results"])
 
 with tab1:
