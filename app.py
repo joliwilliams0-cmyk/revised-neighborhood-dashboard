@@ -5,32 +5,18 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 # -----------------------------
-# CONFIG (UNCHANGED UX)
+# CONFIG
 # -----------------------------
 st.set_page_config(page_title="FABA City Intelligence Engine", layout="wide")
-
 np.random.seed(42)
 
-CITIES = [
-    "Seattle, WA",
-    "Los Angeles, CA",
-    "Houston, TX",
-    "Atlanta, GA",
-    "Phoenix, AZ",
-    "San Antonio, TX",
-    "Raleigh-Durham, NC",
-    "Hampton Roads, VA",
-    "Oakland, CA",
-    "Tampa, FL",
-    "Richmond, VA"
-]
+CITIES = ["Seattle, WA", "Los Angeles, CA", "Houston, TX", "Atlanta, GA", "Phoenix, AZ", "San Antonio, TX", "Raleigh-Durham, NC", "Hampton Roads, VA", "Oakland, CA", "Tampa, FL", "Richmond, VA"]
 
 st.title("🏡 FABA Real Estate Intelligence Engine")
 st.caption("Institutional-grade city matching system (Buyer + Investor logic separated)")
 
 # -----------------------------
-# REALISTIC METRO BENCHMARK DATA (MODELED, NOT RANDOM)
-# Anchored to typical US metro ranges
+# REALISTIC METRO BENCHMARK DATA
 # -----------------------------
 CITY_DATA = {
     "Seattle, WA":        {"job_growth": 0.028, "home_price": 850000, "rent_yield": 0.045, "safety": 0.62, "pop_growth": 0.012},
@@ -45,11 +31,10 @@ CITY_DATA = {
     "Tampa, FL":          {"job_growth": 0.036, "home_price": 420000, "rent_yield": 0.065, "safety": 0.63, "pop_growth": 0.023},
     "Richmond, VA":       {"job_growth": 0.031, "home_price": 380000, "rent_yield": 0.057, "safety": 0.66, "pop_growth": 0.014},
 }
-
 df = pd.DataFrame(CITY_DATA).T
 
 # -----------------------------
-# Z-SCORE NORMALIZATION (REAL STATISTICAL METHOD)
+# Z-SCORE NORMALIZATION
 # -----------------------------
 def zscore(series):
     return (series - series.mean()) / series.std()
@@ -65,7 +50,7 @@ def sigmoid(x):
     return 1 / (1 + np.exp(-x))
 
 # -----------------------------
-# SESSION STATE (UNCHANGED UX FLOW)
+# SESSION STATE
 # -----------------------------
 if "step" not in st.session_state:
     st.session_state.step = 0
@@ -73,27 +58,24 @@ if "mode" not in st.session_state:
     st.session_state.mode = None
 
 # -----------------------------
-# MODE SELECTION (UNCHANGED UX)
+# MODE SELECTION
 # -----------------------------
 if st.session_state.mode is None:
     st.subheader("Choose your path")
     col1, col2 = st.columns(2)
-
     if col1.button("🏡 Home Buyer (Lifestyle-first)"):
         st.session_state.mode = "buyer"
-
     if col2.button("💰 Investor (ROI-first)"):
         st.session_state.mode = "investor"
-
     st.stop()
 
 # -----------------------------
-# BUYER UX (UNCHANGED)
+# BUYER UX
 # -----------------------------
 if st.session_state.mode == "buyer":
     st.sidebar.header("Buyer Preferences")
-
-    budget = st.sidebar.selectbox("Budget Range", ["<300k", "300-600k", "600k-900k", "900k+"])
+    # Updated to better reflect median home price ranges
+    budget = st.sidebar.selectbox("Budget Range", ["<350k", "350-550k", "550-750k", "750k+"])
     climate = st.sidebar.selectbox("Climate Preference", ["warm", "mild", "cold"])
     walkability = st.sidebar.slider("Walkability importance", 0, 10, 5)
     safety = st.sidebar.slider("Safety importance", 0, 10, 8)
@@ -102,11 +84,10 @@ if st.session_state.mode == "buyer":
     urban = st.sidebar.slider("Urban lifestyle preference", 0, 10, 5)
 
 # -----------------------------
-# INVESTOR UX (UNCHANGED)
+# INVESTOR UX
 # -----------------------------
 if st.session_state.mode == "investor":
     st.sidebar.header("Investor Preferences")
-
     horizon = st.sidebar.selectbox("Investment Horizon", ["short", "medium", "long"])
     risk = st.sidebar.slider("Risk Tolerance", 0, 10, 6)
     cashflow = st.sidebar.slider("Cashflow vs Appreciation", 0, 10, 5)
@@ -117,47 +98,30 @@ if st.session_state.mode == "investor":
 # TRUE INSTITUTIONAL SCORING ENGINE
 # -----------------------------
 def compute_scores(mode, prefs):
-
     scores = {}
-
     for city in df.index:
-
         r = z_df.loc[city]
-
         if mode == "buyer":
-
-            raw = (
-                r["safety"] * (1 + prefs["safety"] * 0.12) +
-                r["job_growth"] * 0.8 +
-                r["pop_growth"] * 0.7 +
-                r["rent_yield"] * 0.2 -
-                r["home_price"] * 0.9
-            )
-
+            raw = (r["safety"] * (1 + prefs["safety"] * 0.12) + 
+                   r["job_growth"] * 0.8 + 
+                   r["pop_growth"] * 0.7 + 
+                   r["rent_yield"] * 0.2 - 
+                   r["home_price"] * 0.9)
             affordability_penalty = np.tanh(df.loc[city, "home_price"] / 700000)
-
             score = sigmoid(raw - affordability_penalty)
-
         else:
-
-            raw = (
-                r["rent_yield"] * (1 + prefs["risk"] * 0.18) +
-                r["job_growth"] * 0.9 +
-                r["pop_growth"] * 0.8 +
-                r["safety"] * 0.3 -
-                r["home_price"] * 0.7
-            )
-
+            raw = (r["rent_yield"] * (1 + prefs["risk"] * 0.18) + 
+                   r["job_growth"] * 0.9 + 
+                   r["pop_growth"] * 0.8 + 
+                   r["safety"] * 0.3 - 
+                   r["home_price"] * 0.7)
             volatility_penalty = abs(r["home_price"]) * 0.15
-
             score = sigmoid(raw - volatility_penalty)
-
         scores[city] = score
-
     return pd.Series(scores).sort_values(ascending=False)
 
 # -----------------------------
-# RUN ANALYSIS BUTTON (FIXED STATE LOGIC)
+# RUN ANALYSIS BUTTON
 # -----------------------------
 if st.sidebar.button("Run Analysis"):
     st.session_state.step = 1
@@ -166,61 +130,43 @@ if st.session_state.step == 0:
     st.stop()
 
 # -----------------------------
-# BUILD PREFS (UNCHANGED UX)
+# BUILD PREFS
 # -----------------------------
 if st.session_state.mode == "buyer":
-    prefs = {
-        "budget": budget,
-        "climate": climate,
-        "walkability": walkability,
-        "safety": safety,
-        "diversity": diversity,
-        "schools": schools,
-        "urban": urban
-    }
+    prefs = {"budget": budget, "climate": climate, "walkability": walkability, "safety": safety, "diversity": diversity, "schools": schools, "urban": urban}
 else:
-    prefs = {
-        "horizon": horizon,
-        "risk": risk,
-        "cashflow": cashflow,
-        "vacancy": vacancy,
-        "STR": STR
-    }
+    prefs = {"horizon": horizon, "risk": risk, "cashflow": cashflow, "vacancy": vacancy, "STR": STR}
 
 scores = compute_scores(st.session_state.mode, prefs)
-
 top3 = scores.head(3)
 full = scores.reset_index()
 full.columns = ["City", "Score"]
 
+# Convert scores to percentage for display
+full["Score"] = (full["Score"] * 100).round(1).astype(str) + "%"
+
 # -----------------------------
-# RESULTS (UNCHANGED UX)
+# RESULTS
 # -----------------------------
 st.subheader("📊 Top City Recommendations")
-
 st.write("Top 3 Cities (Ranked):")
 st.dataframe(top3)
 
-tab1, tab2, tab3, tab4 = st.tabs([
-    "🏆 Top Cities",
-    "📊 Data Breakdown",
-    "📈 Charts",
-    "🧠 Why These Results"
-])
+tab1, tab2, tab3, tab4 = st.tabs(["🏆 Top Cities", "📊 Data Breakdown", "📈 Charts", "🧠 Why These Results"])
 
 with tab1:
     st.dataframe(full)
-    st.plotly_chart(px.bar(full, x="City", y="Score"), use_container_width=True)
+    # Use numeric scores for chart plotting
+    chart_df = scores.reset_index()
+    chart_df.columns = ["City", "Score"]
+    st.plotly_chart(px.bar(chart_df, x="City", y="Score"), use_container_width=True)
 
 with tab2:
     st.dataframe(df)
     st.plotly_chart(px.imshow(z_df.T, aspect="auto"), use_container_width=True)
 
 with tab3:
-    st.plotly_chart(
-        px.scatter(full, x="City", y="Score", size="Score"),
-        use_container_width=True
-    )
+    st.plotly_chart(px.scatter(chart_df, x="City", y="Score", size="Score"), use_container_width=True)
 
 with tab4:
     st.subheader("Decision Transparency")
@@ -233,7 +179,6 @@ with tab4:
 # -----------------------------
 st.markdown("---")
 st.subheader("📐 Methodology")
-
 st.write("""
 - Real-world anchored metro-level data (modeled from US housing + labor ranges)
 - Z-score normalization for statistical comparability
@@ -241,5 +186,4 @@ st.write("""
 - Buyer vs Investor separate utility functions
 - Affordability + volatility penalty modeling
 """)
-
 st.success("Analysis complete — institutional-grade engine active.")
