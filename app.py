@@ -129,7 +129,7 @@ if st.session_state.step == 0:
     st.stop()
 
 # -----------------------------
-# BUILD PREFS & CALCULATE
+# BUILD PREFS
 # -----------------------------
 if st.session_state.mode == "buyer":
     prefs = {"budget": budget, "climate": climate, "walkability": walkability, "safety": safety, "diversity": diversity, "schools": schools, "urban": urban}
@@ -138,36 +138,29 @@ else:
 
 scores = compute_scores(st.session_state.mode, prefs)
 
-# Formatted DataFrame for Display
+# Prepare dataframe for display
 display_df = scores.reset_index()
 display_df.columns = ["City", "Match Percentage"]
 display_df["Match Percentage"] = (display_df["Match Percentage"] * 100).round(1).astype(str) + "%"
-
-# Data Breakdown Table (Formatted)
-df_display = df.copy()
-df_display["Job Growth"] = (df_display["Job Growth"] * 100).round(1).astype(str) + "%"
-df_display["Rent Yield"] = (df_display["Rent Yield"] * 100).round(1).astype(str) + "%"
-df_display["Population Growth"] = (df_display["Population Growth"] * 100).round(1).astype(str) + "%"
-df_display["Safety"] = (df_display["Safety"] * 100).astype(int).astype(str) + "%"
-df_display["Home Price"] = df_display["Home Price"].apply(lambda x: f"${x:,}")
 
 # -----------------------------
 # RESULTS
 # -----------------------------
 st.subheader("📊 Top City Recommendations")
 st.write("Top 3 Cities (Ranked):")
-st.dataframe(display_df.head(3), use_container_width=True)
+st.dataframe(display_df.head(3))
 
 tab1, tab2, tab3, tab4 = st.tabs(["🏆 Top Cities", "📊 Data Breakdown", "📈 Charts", "🧠 Why These Results"])
 
 with tab1:
-    st.dataframe(display_df, use_container_width=True)
+    st.dataframe(display_df)
+    # Use raw numeric scores for chart plotting
     chart_df = scores.reset_index()
     chart_df.columns = ["City", "Score"]
     st.plotly_chart(px.bar(chart_df, x="City", y="Score"), use_container_width=True)
 
 with tab2:
-    st.dataframe(df_display, use_container_width=True)
+    st.dataframe(df)
     st.plotly_chart(px.imshow(z_df.T, aspect="auto"), use_container_width=True)
 
 with tab3:
