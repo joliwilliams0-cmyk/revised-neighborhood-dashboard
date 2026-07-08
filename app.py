@@ -143,24 +143,31 @@ display_df = scores.reset_index()
 display_df.columns = ["City", "Match Percentage"]
 display_df["Match Percentage"] = (display_df["Match Percentage"] * 100).round(1).astype(str) + "%"
 
+# --- NEW: Formatted DataFrame for Data Breakdown ---
+df_readable = df.copy()
+df_readable["Job Growth"] = (df_readable["Job Growth"] * 100).round(1).astype(str) + "%"
+df_readable["Rent Yield"] = (df_readable["Rent Yield"] * 100).round(1).astype(str) + "%"
+df_readable["Population Growth"] = (df_readable["Population Growth"] * 100).round(1).astype(str) + "%"
+df_readable["Safety"] = (df_readable["Safety"] * 100).astype(int).astype(str) + "%"
+df_readable["Home Price"] = df_readable["Home Price"].apply(lambda x: f"${x:,}")
+
 # -----------------------------
 # RESULTS
 # -----------------------------
 st.subheader("📊 Top City Recommendations")
 st.write("Top 3 Cities (Ranked):")
-st.dataframe(display_df.head(3))
+st.dataframe(display_df.head(3), use_container_width=True)
 
 tab1, tab2, tab3, tab4 = st.tabs(["🏆 Top Cities", "📊 Data Breakdown", "📈 Charts", "🧠 Why These Results"])
 
 with tab1:
-    st.dataframe(display_df)
-    # Use raw numeric scores for chart plotting
+    st.dataframe(display_df, use_container_width=True)
     chart_df = scores.reset_index()
     chart_df.columns = ["City", "Score"]
     st.plotly_chart(px.bar(chart_df, x="City", y="Score"), use_container_width=True)
 
 with tab2:
-    st.dataframe(df)
+    st.dataframe(df_readable, use_container_width=True) # Using the new readable DF
     st.plotly_chart(px.imshow(z_df.T, aspect="auto"), use_container_width=True)
 
 with tab3:
