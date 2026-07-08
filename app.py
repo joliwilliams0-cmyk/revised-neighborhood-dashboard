@@ -18,7 +18,6 @@ st.caption("Institutional-grade city matching system (Buyer + Investor logic sep
 # -----------------------------
 # REALISTIC METRO BENCHMARK DATA
 # -----------------------------
-# Renamed keys for cleaner display
 CITY_DATA = {
     "Seattle, WA":        {"Job Growth": 0.028, "Home Price": 850000, "Rent Yield": 0.045, "Safety": 0.62, "Population Growth": 0.012},
     "Los Angeles, CA":    {"Job Growth": 0.022, "Home Price": 900000, "Rent Yield": 0.038, "Safety": 0.55, "Population Growth": 0.010},
@@ -40,7 +39,6 @@ df = pd.DataFrame(CITY_DATA).T
 def zscore(series):
     return (series - series.mean()) / series.std()
 
-# Create z_df based on the clean column names
 z_df = df.copy()
 for col in df.columns:
     z_df[col] = zscore(df[col])
@@ -103,7 +101,6 @@ def compute_scores(mode, prefs):
     for city in df.index:
         r = z_df.loc[city]
         if mode == "buyer":
-            # Updated to match new clean column names
             raw = (r["Safety"] * (1 + prefs["safety"] * 0.12) + 
                    r["Job Growth"] * 0.8 + 
                    r["Population Growth"] * 0.7 + 
@@ -140,25 +137,29 @@ else:
     prefs = {"horizon": horizon, "risk": risk, "cashflow": cashflow, "vacancy": vacancy, "STR": STR}
 
 scores = compute_scores(st.session_state.mode, prefs)
-top3 = scores.head(3)
+# Prepare data with proper labels
 full = scores.reset_index()
-full.columns = ["City", "Score"]
+full.columns = ["City", "Match Percentage"]
 
 # Convert scores to percentage for display
-full["Score"] = (full["Score"] * 100).round(1).astype(str) + "%"
+full["Match Percentage"] = (full["Match Percentage"] * 100).round(1).astype(str) + "%"
+
+# For Top 3, we ensure the index does not show, using the formatted DF
+top3 = full.head(3)
 
 # -----------------------------
 # RESULTS
 # -----------------------------
 st.subheader("📊 Top City Recommendations")
 st.write("Top 3 Cities (Ranked):")
-st.dataframe(top3)
+# Use index=False to hide the default numeric index
+st.dataframe(top3, index=False)
 
 tab1, tab2, tab3, tab4 = st.tabs(["🏆 Top Cities", "📊 Data Breakdown", "📈 Charts", "🧠 Why These Results"])
 
 with tab1:
-    st.dataframe(full)
-    # Use numeric scores for chart plotting
+    st.dataframe(full, index=False)
+    # Re-plot using raw numeric scores for charts
     chart_df = scores.reset_index()
     chart_df.columns = ["City", "Score"]
     st.plotly_chart(px.bar(chart_df, x="City", y="Score"), use_container_width=True)
@@ -168,11 +169,14 @@ with tab2:
     st.plotly_chart(px.imshow(z_df.T, aspect="auto"), use_container_width=True)
 
 with tab3:
+    # Use numeric scores for charts
+    chart_df = scores.reset_index()
+    chart_df.columns = ["City", "Score"]
     st.plotly_chart(px.scatter(chart_df, x="City", y="Score", size="Score"), use_container_width=True)
 
 with tab4:
     st.subheader("Decision Transparency")
-    for i, city in enumerate(top3.index):
+    for i, city in enumerate(top3["City"]):
         st.markdown(f"### {i+1}. {city}")
         st.write(df.loc[city])
 
