@@ -137,33 +137,24 @@ else:
     prefs = {"horizon": horizon, "risk": risk, "cashflow": cashflow, "vacancy": vacancy, "STR": STR}
 
 scores = compute_scores(st.session_state.mode, prefs)
-# Prepare data with proper labels
-full = scores.reset_index()
-full.columns = ["City", "Match Percentage"]
 
-# Convert scores to percentage for display
-full["Match Percentage"] = (full["Match Percentage"] * 100).round(1).astype(str) + "%"
-
-# Ensure it is a DataFrame and reset the index
-top3 = scores.head(3).reset_index()
-top3.columns = ["City", "Match Percentage"]
-
-# Convert scores to percentage for display
-top3["Match Percentage"] = (top3["Match Percentage"] * 100).round(1).astype(str) + "%"
+# Prepare dataframe for display
+display_df = scores.reset_index()
+display_df.columns = ["City", "Match Percentage"]
+display_df["Match Percentage"] = (display_df["Match Percentage"] * 100).round(1).astype(str) + "%"
 
 # -----------------------------
 # RESULTS
 # -----------------------------
 st.subheader("📊 Top City Recommendations")
 st.write("Top 3 Cities (Ranked):")
+st.dataframe(display_df.head(3))
 
-# Use this to avoid index errors
-st.dataframe(top3, hide_index=True)
 tab1, tab2, tab3, tab4 = st.tabs(["🏆 Top Cities", "📊 Data Breakdown", "📈 Charts", "🧠 Why These Results"])
 
 with tab1:
-    st.dataframe(full, index=False)
-    # Re-plot using raw numeric scores for charts
+    st.dataframe(display_df)
+    # Use raw numeric scores for chart plotting
     chart_df = scores.reset_index()
     chart_df.columns = ["City", "Score"]
     st.plotly_chart(px.bar(chart_df, x="City", y="Score"), use_container_width=True)
@@ -173,14 +164,14 @@ with tab2:
     st.plotly_chart(px.imshow(z_df.T, aspect="auto"), use_container_width=True)
 
 with tab3:
-    # Use numeric scores for charts
     chart_df = scores.reset_index()
     chart_df.columns = ["City", "Score"]
     st.plotly_chart(px.scatter(chart_df, x="City", y="Score", size="Score"), use_container_width=True)
 
 with tab4:
     st.subheader("Decision Transparency")
-    for i, city in enumerate(top3["City"]):
+    top3_cities = display_df.head(3)["City"]
+    for i, city in enumerate(top3_cities):
         st.markdown(f"### {i+1}. {city}")
         st.write(df.loc[city])
 
